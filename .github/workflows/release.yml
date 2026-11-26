@@ -38,7 +38,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cargo pkg-config libgtk-4-dev libadwaita-1-dev patchelf desktop-file-utils libgdk-pixbuf2.0-dev wget file
       - name: Build Binary
-        run: cargo build --release
+        run: export PATH="/ucrt64/bin:$PATH" && cargo build --release
       - name: Package AppImage
         run: |
           mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
@@ -79,7 +79,7 @@ jobs:
             mingw-w64-ucrt-x86_64-gtk4
             mingw-w64-ucrt-x86_64-libadwaita
       - name: Build Windows Binary
-        run: cargo build --release
+        run: export PATH="/ucrt64/bin:$PATH" && cargo build --release
       - name: Package Windows Zip
         run: |
           mkdir -p FFmpeg-Studio-Windows

@@ -17,7 +17,7 @@ modules:
     build-options:
       append-path: /usr/lib/sdk/rust-stable/bin
     build-commands:
-      - cargo build --release
+      - cargo build --release --offline
       - install -Dm755 target/release/ffmpeg-gui /app/bin/ffmpeg-gui
       - install -Dm644 assets/ffmpeg-studio.svg /app/share/icons/hicolor/scalable/apps/org.archlinux.FfmpegGui.svg
     sources:

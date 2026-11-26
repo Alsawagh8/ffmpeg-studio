@@ -18,11 +18,11 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Vendor Cargo Dependencies Offline
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
           mkdir -p .cargo
-          "$HOME/.cargo/bin/cargo" vendor > .cargo/config.toml
+          cargo vendor > .cargo/config.toml
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: FFmpeg-Studio-x86_64.flatpak
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Arch Build Dependencies
         run: |
-          pacman -Syu --noconfirm --needed rust base-devel pkgconf gtk4 libadwaita curl ca-certificates file appstream desktop-file-utils
+          pacman -Syu --noconfirm --needed rust base-devel pkgconf gtk4 libadwaita python file appstream desktop-file-utils
       - name: Build Release Binary
         run: cargo build --release
       - name: Create Portable Linux Archive
@@ -73,7 +73,7 @@ jobs:
           chmod +x AppDir/AppRun
           cp AppDir/usr/share/applications/ffmpeg-studio.desktop AppDir/
           cp AppDir/usr/share/icons/hicolor/scalable/apps/ffmpeg-studio.svg AppDir/
-          curl -fSL "https://github.com" -o appimagetool-x86_64.AppImage
+          python3 -c 'import urllib.request; urllib.request.urlretrieve("https://github.com", "appimagetool-x86_64.AppImage")'
           chmod +x appimagetool-x86_64.AppImage
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir FFmpeg-Studio-x86_64.AppImage
       - uses: softprops/action-gh-release@v2

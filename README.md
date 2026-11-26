@@ -90,3 +90,16 @@ cargo build --release
 
 ## 📄 License
 MIT License
+---
+
+<div dir="rtl">
+
+## 🤝 شكر وتنويه (Credits & Acknowledgments)
+
+تم تطوير وبناء هذا المشروع بتعاون مشترك وبمساعدة **الذكاء الاصطناعي (AI-Assisted Development)** في كتابة الكود البرمجي بلغة Rust وتصميم واجهة GTK4/Libadwaita، مع الاختبار والتوجيه والتعديل اليدوي على نظام Arch Linux و Wayland.
+
+</div>
+
+## 🤝 Credits & Acknowledgments
+
+This project was built through **AI-assisted development**, utilizing Artificial Intelligence for writing the Rust codebase and structuring the GTK4/Libadwaita interface, combined with human direction, testing, and refinement on Arch Linux and Wayland.

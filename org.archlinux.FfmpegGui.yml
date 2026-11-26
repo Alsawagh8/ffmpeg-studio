@@ -1,0 +1,25 @@
+app-id: org.archlinux.FfmpegGui
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: ffmpeg-gui
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --filesystem=home
+modules:
+  - name: ffmpeg-gui
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+    build-commands:
+      - cargo build --release
+      - install -Dm755 target/release/ffmpeg-gui /app/bin/ffmpeg-gui
+      - install -Dm644 assets/ffmpeg-studio.svg /app/share/icons/hicolor/scalable/apps/org.archlinux.FfmpegGui.svg
+    sources:
+      - type: dir
+        path: .

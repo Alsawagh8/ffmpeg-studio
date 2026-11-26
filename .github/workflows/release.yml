@@ -1,0 +1,92 @@
+name: Build Releases (AppImage, Flatpak & Windows)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-flatpak:
+    name: Build Linux Flatpak
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-47
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: FFmpeg-Studio-x86_64.flatpak
+          manifest-path: org.archlinux.FfmpegGui.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: FFmpeg-Studio-x86_64.flatpak
+
+  build-appimage:
+    name: Build Linux AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cargo pkg-config libgtk-4-dev libadwaita-1-dev patchelf desktop-file-utils libgdk-pixbuf2.0-dev wget file
+      - name: Build Binary
+        run: cargo build --release
+      - name: Package AppImage
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
+          cp target/release/ffmpeg-gui AppDir/usr/bin/
+          cp assets/ffmpeg-studio.svg AppDir/usr/share/icons/hicolor/scalable/apps/
+          cat << 'DESKTOP' > AppDir/usr/share/applications/ffmpeg-studio.desktop
+          [Desktop Entry]
+          Name=FFmpeg Studio
+          Exec=ffmpeg-gui
+          Icon=ffmpeg-studio
+          Type=Application
+          Categories=AudioVideo;
+          DESKTOP
+          wget -q https://github.com
+          chmod +x linuxdeploy-x86_64.AppImage
+          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir AppDir --output appimage
+          mv FFmpeg_Studio*.AppImage FFmpeg-Studio-x86_64.AppImage
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: FFmpeg-Studio-x86_64.AppImage
+
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-libadwaita
+      - name: Build Windows Binary
+        run: cargo build --release
+      - name: Package Windows Zip
+        run: |
+          mkdir -p FFmpeg-Studio-Windows
+          cp target/release/ffmpeg-gui.exe FFmpeg-Studio-Windows/
+          cp /ucrt64/bin/*.dll FFmpeg-Studio-Windows/ 2>/dev/null || true
+          zip -r FFmpeg-Studio-Windows-x64.zip FFmpeg-Studio-Windows
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: FFmpeg-Studio-Windows-x64.zip

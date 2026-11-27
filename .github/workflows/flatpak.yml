@@ -1,0 +1,38 @@
+name: Build Flatpak Package
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/flatpak.yml'
+      - 'org.archlinux.FfmpegGui.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-flatpak:
+    name: Build Linux Flatpak
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Vendor Cargo Dependencies Offline
+        run: |
+          mkdir -p .cargo
+          cargo vendor > .cargo/config.toml
+      - name: Install Flatpak Builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org
+          flatpak install --user -y flathub org.gnome.Platform//47 org.gnome.Sdk//47 org.freedesktop.Sdk.Extension.rust-stable//24.08
+      - name: Build & Bundle Flatpak
+        run: |
+          flatpak-builder --user --force-clean --repo=repo build-dir org.archlinux.FfmpegGui.yml
+          flatpak build-bundle repo FFmpeg-Studio-x86_64.flatpak org.archlinux.FfmpegGui
+      - name: Upload Flatpak to v0.3.5 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.3.5
+          files: FFmpeg-Studio-x86_64.flatpak

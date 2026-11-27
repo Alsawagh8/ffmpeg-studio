@@ -466,7 +466,7 @@ fn build_ui(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("FFmpeg Studio v0.3.6")
+        .title("FFmpeg Studio v0.3.9")
         .default_width(780)
         .default_height(600)
         .width_request(360)

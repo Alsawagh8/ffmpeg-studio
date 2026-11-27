@@ -3,8 +3,6 @@ name: Build Full Windows Installer (Signed Setup.exe)
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
     paths:
       - '.github/workflows/windows-installer.yml'
       - 'installer.iss'
@@ -31,21 +29,27 @@ jobs:
             mingw-w64-ucrt-x86_64-gtk4
             mingw-w64-ucrt-x86_64-libadwaita
             mingw-w64-ucrt-x86_64-ffmpeg
+            mingw-w64-ucrt-x86_64-librsvg
             mingw-w64-ucrt-x86_64-imagemagick
-      - name: Generate Windows Icon & Build Binary in MSYS2
+      - name: Generate Standard Windows ICO & Build Binary in MSYS2
         shell: msys2 {0}
         run: |
           export PATH="/ucrt64/bin:$PATH"
-          magick -background none assets/ffmpeg-studio.svg -define icon:auto-resize=256,128,64,48,32,16 assets/ffmpeg-studio.ico
+          for sz in 16 32 48 64 128 256; do
+            rsvg-convert -w $sz -h $sz assets/ffmpeg-studio.svg -o "icon_${sz}.png"
+          done
+          magick icon_16.png icon_32.png icon_48.png icon_64.png icon_128.png icon_256.png assets/ffmpeg-studio.ico
           cargo build --release
-          mkdir -p FFmpeg-Studio-Windows/share/glib-2.0/schemas FFmpeg-Studio-Windows/share/icons
+          mkdir -p FFmpeg-Studio-Windows/share/glib-2.0/schemas FFmpeg-Studio-Windows/share/icons/hicolor/scalable/apps
           cp target/release/ffmpeg-gui.exe FFmpeg-Studio-Windows/
           cp /ucrt64/bin/ffmpeg.exe FFmpeg-Studio-Windows/
           cp /ucrt64/bin/ffprobe.exe FFmpeg-Studio-Windows/
           cp /ucrt64/bin/*.dll FFmpeg-Studio-Windows/ 2>/dev/null || true
           cp /ucrt64/share/glib-2.0/schemas/gschemas.compiled FFmpeg-Studio-Windows/share/glib-2.0/schemas/ 2>/dev/null || true
           cp -r /ucrt64/share/icons/Adwaita FFmpeg-Studio-Windows/share/icons/ 2>/dev/null || true
-          cp -r /ucrt64/share/icons/hicolor FFmpeg-Studio-Windows/share/icons/ 2>/dev/null || true
+          cp -r /ucrt64/share/icons/hicolor/* FFmpeg-Studio-Windows/share/icons/hicolor/ 2>/dev/null || true
+          cp assets/ffmpeg-studio.svg FFmpeg-Studio-Windows/share/icons/hicolor/scalable/apps/org.archlinux.FfmpegGui.svg
+          gtk4-update-icon-cache -f -t FFmpeg-Studio-Windows/share/icons/hicolor 2>/dev/null || true
       - name: Sign Application & Compile Signed Installer
         shell: pwsh
         run: |
@@ -55,11 +59,10 @@ jobs:
           & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint "FFmpeg-Studio-Windows\ffmpeg-gui.exe"
           iscc installer.iss
           & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint "FFmpeg-Studio-Windows-Setup.exe"
-      - name: Upload Signed Setup & Certificate to Release
+      - name: Upload Updated Windows Setup to v0.3.8 Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.3.8
-
           files: |
             FFmpeg-Studio-Windows-Setup.exe
             FFmpeg-Studio-Cert.cer

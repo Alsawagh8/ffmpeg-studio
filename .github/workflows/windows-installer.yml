@@ -3,8 +3,10 @@ name: Build Full Windows Installer (Signed Setup.exe)
 on:
   workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    paths:
+      - '.github/workflows/windows-installer.yml'
+      - 'installer.iss'
+      - 'build.rs'
 
 permissions:
   contents: write
@@ -27,18 +29,19 @@ jobs:
             mingw-w64-ucrt-x86_64-libadwaita
             mingw-w64-ucrt-x86_64-ffmpeg
             mingw-w64-ucrt-x86_64-librsvg
-            mingw-w64-ucrt-x86_64-imagemagick
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pillow
       - name: Generate Standard Windows ICO & Build Binary in MSYS2
         shell: msys2 {0}
         run: |
           export PATH="/ucrt64/bin:$PATH"
-          for sz in 16 32 48 64 128 256; do
-            rsvg-convert -w $sz -h $sz assets/ffmpeg-studio.svg -o "icon_${sz}.png"
-          done
-          magick icon_16.png icon_32.png icon_48.png icon_64.png icon_128.png icon_256.png assets/ffmpeg-studio.ico
+          rsvg-convert -w 512 -h 512 assets/ffmpeg-studio.svg -o icon_512.png
+          python3 -c 'from PIL import Image; img = Image.open("icon_512.png").convert("RGBA"); img.save("assets/ffmpeg-studio.ico", format="ICO", sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])'
+          ls -lh assets/ffmpeg-studio.ico
           cargo build --release
           mkdir -p FFmpeg-Studio-Windows/share/glib-2.0/schemas FFmpeg-Studio-Windows/share/icons/hicolor/scalable/apps
           cp target/release/ffmpeg-gui.exe FFmpeg-Studio-Windows/
+          cp assets/ffmpeg-studio.ico FFmpeg-Studio-Windows/
           cp /ucrt64/bin/ffmpeg.exe FFmpeg-Studio-Windows/
           cp /ucrt64/bin/ffprobe.exe FFmpeg-Studio-Windows/
           cp /ucrt64/bin/*.dll FFmpeg-Studio-Windows/ 2>/dev/null || true

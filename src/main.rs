@@ -15,6 +15,21 @@ use std::time::Duration;
 
 const APP_ID: &str = "org.archlinux.FfmpegGui";
 
+fn is_arabic_system() -> bool {
+    for var in ["LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"] {
+        if let Ok(val) = std::env::var(var) {
+            if val.trim().to_lowercase().starts_with("ar") { return true; }
+        }
+    }
+    for lang in glib::language_names() {
+        let l = lang.to_lowercase();
+        if l.starts_with("ar") { return true; }
+        if l != "c" && l != "posix" && !l.is_empty() { return false; }
+    }
+    false
+}
+
+
 struct FfmpegCapabilities {
     video_encoders: Vec<String>,
     audio_encoders: Vec<String>,
@@ -25,8 +40,8 @@ struct FfmpegCapabilities {
 
 impl FfmpegCapabilities {
     fn detect() -> Self {
-        let mut video_encoders = vec!["copy".to_string(), "none (بدون فيديو)".to_string()];
-        let mut audio_encoders = vec!["copy".to_string(), "none (بدون صوت)".to_string()];
+        let mut video_encoders = vec!["copy".to_string(), (if is_arabic_system() { "none (بدون فيديو)" } else { "none (No Video)" }).to_string()];
+        let mut audio_encoders = vec!["copy".to_string(), (if is_arabic_system() { "none (بدون صوت)" } else { "none (No Audio)" }).to_string()];
         let mut formats = Vec::new();
         let mut video_filters = Vec::new();
         let mut audio_filters = Vec::new();
@@ -129,9 +144,9 @@ fn detect_preset_mode(codec: &str) -> PresetMode {
 
 fn preset_options_for_mode(mode: &PresetMode) -> Vec<&'static str> {
     match mode {
-        PresetMode::None => vec!["غير متاح لهذا الترميز"],
+        PresetMode::None => vec![(if is_arabic_system() { "غير متاح لهذا الترميز" } else { "Not available for this codec" })],
         PresetMode::StandardPreset => vec![
-            "افتراضي",
+            (if is_arabic_system() { "افتراضي" } else { "Default" }),
             "ultrafast",
             "superfast",
             "veryfast",
@@ -143,38 +158,38 @@ fn preset_options_for_mode(mode: &PresetMode) -> Vec<&'static str> {
             "veryslow",
         ],
         PresetMode::SvtAv1 => vec![
-            "افتراضي",
-            "0 (أبطأ / أعلى جودة)",
+            (if is_arabic_system() { "افتراضي" } else { "Default" }),
+            (if is_arabic_system() { "0 (أبطأ / أعلى جودة)" } else { "0 (Slowest / Best Quality)" }),
             "2",
-            "4 (جودة عالية)",
+            (if is_arabic_system() { "4 (جودة عالية)" } else { "4 (High Quality)" }),
             "5",
-            "6 (متوازن)",
+            (if is_arabic_system() { "6 (متوازن)" } else { "6 (Balanced)" }),
             "7",
-            "8 (سريع)",
-            "10 (سريع جداً)",
+            (if is_arabic_system() { "8 (سريع)" } else { "8 (Fast)" }),
+            (if is_arabic_system() { "10 (سريع جداً)" } else { "10 (Very Fast)" }),
             "12",
-            "13 (الأسرع)",
+            (if is_arabic_system() { "13 (الأسرع)" } else { "13 (Fastest)" }),
         ],
         PresetMode::Nvenc => vec![
-            "افتراضي",
-            "p1 (الأسرع)",
+            (if is_arabic_system() { "افتراضي" } else { "Default" }),
+            (if is_arabic_system() { "p1 (الأسرع)" } else { "p1 (Fastest)" }),
             "p2",
             "p3",
-            "p4 (متوازن)",
+            (if is_arabic_system() { "p4 (متوازن)" } else { "p4 (Balanced)" }),
             "p5",
             "p6",
-            "p7 (أعلى جودة)",
+            (if is_arabic_system() { "p7 (أعلى جودة)" } else { "p7 (Best Quality)" }),
         ],
         PresetMode::CpuUsed => vec![
-            "افتراضي",
-            "0 (أعلى جودة)",
+            (if is_arabic_system() { "افتراضي" } else { "Default" }),
+            (if is_arabic_system() { "0 (أعلى جودة)" } else { "0 (Best Quality)" }),
             "1",
             "2",
             "3",
-            "4 (متوازن)",
+            (if is_arabic_system() { "4 (متوازن)" } else { "4 (Balanced)" }),
             "5",
-            "6 (سريع)",
-            "8 (الأسرع)",
+            (if is_arabic_system() { "6 (سريع)" } else { "6 (Fast)" }),
+            (if is_arabic_system() { "8 (الأسرع)" } else { "8 (Fastest)" }),
         ],
     }
 }
@@ -242,7 +257,7 @@ fn build_default_output_path(input: &str, ext: &str) -> String {
 
 fn get_ffmpeg_help(topic: &str, name: &str) -> String {
     if name.is_empty() || name == "copy" || name.starts_with("none") {
-        return "لا توجد خيارات متقدمة إضافية لهذا الاختيار.".to_string();
+        return (if is_arabic_system() { "لا توجد خيارات متقدمة إضافية لهذا الاختيار." } else { "No additional advanced options for this selection." }).to_string();
     }
     let query = format!("{}={}", topic, name);
     if let Ok(output) = Command::new("ffmpeg")
@@ -255,7 +270,7 @@ fn get_ffmpeg_help(topic: &str, name: &str) -> String {
         }
         return out;
     }
-    "تعذر جلب معلومات المساعدة من ffmpeg".to_string()
+    (if is_arabic_system() { "تعذر جلب معلومات المساعدة من ffmpeg" } else { "Failed to retrieve help info from ffmpeg" }).to_string()
 }
 
 fn get_media_duration(path: &str) -> f64 {
@@ -289,7 +304,7 @@ fn get_media_info(path: &str) -> String {
     if let Ok(output) = Command::new("ffprobe").args(args).output() {
         return String::from_utf8_lossy(&output.stdout).to_string();
     }
-    "تعذر قراءة معلومات الملف".to_string()
+    (if is_arabic_system() { "تعذر قراءة معلومات الملف" } else { "Unable to read media info" }).to_string()
 }
 
 enum ProgressMsg {
@@ -375,7 +390,7 @@ fn show_help_dialog(parent: &adw::ApplicationWindow, title: &str, content_text: 
 fn build_quick_presets_box(vf_entry: &Entry) -> Box {
     let container = Box::builder().orientation(Orientation::Vertical).spacing(8).margin_bottom(8).build();
     let res_items = [
-        "اختر دقة جاهزة...",
+        (if is_arabic_system() { "اختر دقة جاهزة..." } else { "Select a resolution preset..." }),
         "4K UHD (3840x2160) - Lanczos -> scale=3840:2160:flags=lanczos",
         "2K QHD (2560x1440) - Lanczos -> scale=2560:1440:flags=lanczos",
         "1080p FullHD (1920x1080) -> scale=1920:1080:flags=lanczos",
@@ -383,7 +398,7 @@ fn build_quick_presets_box(vf_entry: &Entry) -> Box {
         "تناسب تلقائي للعرض 1920 -> scale=1920:-2:flags=lanczos",
     ];
     let color_items = [
-        "اختر مساحة ألوان أو تحسين لوني...",
+        (if is_arabic_system() { "اختر مساحة ألوان أو تحسين لوني..." } else { "Select a color space or grading preset..." }),
         "مساحة ألوان قياسية HD (BT.709) -> colorspace=all=bt709:iall=bt601-6-625:fast=1",
         "تحويل HDR إلى SDR طبيعي -> zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable,zscale=p=bt709:t=bt709:m=bt709:r=tv,format=yuv420p",
         "نطاق لوني كامل (Full Range) -> scale=in_range=limited:out_range=full",
@@ -391,21 +406,21 @@ fn build_quick_presets_box(vf_entry: &Entry) -> Box {
         "تعميق الأسود (Cinema Look) -> eq=gamma=0.95:contrast=1.12:saturation=1.15",
     ];
     let enhance_items = [
-        "اختر فلتر تحسين ووضوح...",
+        (if is_arabic_system() { "اختر فلتر تحسين ووضوح..." } else { "Select an enhancement or sharpen filter..." }),
         "زيادة الحدة والوضوح (Sharpen) -> unsharp=5:5:1.0:5:5:0.0",
         "حدة فائقة للأنمي والرسوم -> unsharp=5:5:1.5:5:5:0.0",
         "إزالة التحبب والتشويش (Denoise خفيف) -> hqdn3d=1.5:1.5:6:6",
         "إزالة التشويش القوي (Denoise قوي) -> hqdn3d=4.0:3.0:6:4.5",
     ];
     for (title, items) in [
-        ("📐 تغيير ورفع الدقة (Resolution):", res_items.as_slice()),
-        ("🎨 مساحات الألوان (Color Space):", color_items.as_slice()),
-        ("✨ تحسين الجودة والوضوح (Enhance):", enhance_items.as_slice()),
+        ((if is_arabic_system() { "📐 تغيير ورفع الدقة (Resolution):" } else { "📐 Resolution & Upscaling:" }), res_items.as_slice()),
+        ((if is_arabic_system() { "🎨 مساحات الألوان (Color Space):" } else { "🎨 Color Space & Grading:" }), color_items.as_slice()),
+        ((if is_arabic_system() { "✨ تحسين الجودة والوضوح (Enhance):" } else { "✨ Enhancement & Denoise:" }), enhance_items.as_slice()),
     ] {
         let row = Box::builder().orientation(Orientation::Horizontal).spacing(8).build();
         let dd = DropDown::new(Some(StringList::new(items)), gtk::Expression::NONE);
         dd.set_hexpand(true);
-        let add_btn = Button::with_label("➕ تطبيق");
+        let add_btn = Button::with_label((if is_arabic_system() { "➕ تطبيق" } else { "➕ Apply" }));
         let (dd_c, vf_c) = (dd.clone(), vf_entry.clone());
         add_btn.connect_clicked(move |_| {
             if let Some(obj) = dd_c.selected_item().and_downcast::<StringObject>() {
@@ -424,6 +439,8 @@ fn build_quick_presets_box(vf_entry: &Entry) -> Box {
 }
 
 fn build_ui(app: &adw::Application) {
+    let is_ar = is_arabic_system();
+    gtk::Widget::set_default_direction(if is_ar { gtk::TextDirection::Rtl } else { gtk::TextDirection::Ltr });
     let caps = FfmpegCapabilities::detect();
     let selected_file: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
     let running_child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
@@ -439,29 +456,29 @@ fn build_ui(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("FFmpeg Studio v0.3.5")
+        .title("FFmpeg Studio v0.3.6")
         .default_width(820)
         .default_height(660)
         .build();
 
     // --- التبويب 1: الملف والصيغة ---
     let general_box = make_tab_box();
-    let select_btn = Button::with_label("📂 اختر ملف المصدر (أو اسحب الملف وأفلته هنا)");
-    let file_label = Label::new(Some("لم يتم اختيار ملف"));
+    let select_btn = Button::with_label((if is_arabic_system() { "📂 اختر ملف المصدر (أو اسحب الملف وأفلته هنا)" } else { "📂 Select Source File (or Drag & Drop here)" }));
+    let file_label = Label::new(Some((if is_arabic_system() { "لم يتم اختيار ملف" } else { "No file selected" })));
     file_label.set_wrap(true);
 
     let format_row = Box::builder().orientation(Orientation::Horizontal).spacing(8).build();
     let format_dropdown = make_dropdown(&caps.formats, true);
     format_dropdown.set_hexpand(true);
-    let format_help_btn = Button::with_label("ℹ️ خيارات الصيغة");
+    let format_help_btn = Button::with_label((if is_arabic_system() { "ℹ️ خيارات الصيغة" } else { "ℹ️ Format Options" }));
     format_row.append(&format_dropdown);
     format_row.append(&format_help_btn);
 
     let output_name_entry = Entry::builder()
-        .placeholder_text("اسم الملف الناتج (اتركه فارغاً ليصبح الاسم(1).ext تلقائياً)")
+        .placeholder_text((if is_arabic_system() { "اسم الملف الناتج (اتركه فارغاً ليصبح الاسم(1).ext تلقائياً)" } else { "Output file path (leave empty for auto Name(1).ext)" }))
         .build();
 
-    let media_info_label = Label::new(Some("معلومات الملف ستظهر هنا..."));
+    let media_info_label = Label::new(Some((if is_arabic_system() { "معلومات الملف ستظهر هنا..." } else { "Media information will appear here..." })));
     media_info_label.set_wrap(true);
     media_info_label.set_xalign(0.0);
     let info_scroll = ScrolledWindow::builder()
@@ -471,105 +488,105 @@ fn build_ui(app: &adw::Application) {
 
     general_box.append(&select_btn);
     general_box.append(&file_label);
-    general_box.append(&Label::new(Some("صيغة الإخراج (Format):")));
+    general_box.append(&Label::new(Some((if is_arabic_system() { "صيغة الإخراج (Format):" } else { "Output Format:" }))));
     general_box.append(&format_row);
-    general_box.append(&Label::new(Some("مسار الحفظ المخصص:")));
+    general_box.append(&Label::new(Some((if is_arabic_system() { "مسار الحفظ المخصص:" } else { "Custom Output Path:" }))));
     general_box.append(&output_name_entry);
-    general_box.append(&Label::new(Some("تفاصيل الملف (ffprobe):")));
+    general_box.append(&Label::new(Some((if is_arabic_system() { "تفاصيل الملف (ffprobe):" } else { "Media Details (ffprobe):" }))));
     general_box.append(&info_scroll);
-    view_stack.add_titled(&general_box, Some("general"), "الملف والصيغة");
+    view_stack.add_titled(&general_box, Some("general"), (if is_arabic_system() { "الملف والصيغة" } else { "File & Format" }));
 
     // --- التبويب 2: الفيديو ---
     let video_box = make_tab_box();
     let video_row = Box::builder().orientation(Orientation::Horizontal).spacing(8).build();
     let video_dropdown = make_dropdown(&caps.video_encoders, true);
     video_dropdown.set_hexpand(true);
-    let video_help_btn = Button::with_label("ℹ️ خيارات الترميز");
+    let video_help_btn = Button::with_label((if is_arabic_system() { "ℹ️ خيارات الترميز" } else { "ℹ️ Codec Options" }));
     video_row.append(&video_dropdown);
     video_row.append(&video_help_btn);
 
-    let crf_entry = Entry::builder().placeholder_text("مثال: 23 (أو 30 لـ svtav1)").build();
-    let v_bitrate_entry = Entry::builder().placeholder_text("مثال: 5000k").build();
-    let fps_entry = Entry::builder().placeholder_text("مثال: 30 أو 60").build();
+    let crf_entry = Entry::builder().placeholder_text((if is_arabic_system() { "مثال: 23 (أو 30 لـ svtav1)" } else { "e.g. 23 (or 30 for svtav1)" })).build();
+    let v_bitrate_entry = Entry::builder().placeholder_text((if is_arabic_system() { "مثال: 5000k" } else { "e.g. 5000k" })).build();
+    let fps_entry = Entry::builder().placeholder_text((if is_arabic_system() { "مثال: 30 أو 60" } else { "e.g. 30 or 60" })).build();
 
-    let preset_label = Label::new(Some("سرعة الضغط (-preset):"));
+    let preset_label = Label::new(Some((if is_arabic_system() { "سرعة الضغط (-preset):" } else { "Encoding Speed (-preset):" })));
     let preset_dropdown = DropDown::new(
-        Some(StringList::new(&["غير متاح لهذا الترميز"])),
+        Some(StringList::new(&[(if is_arabic_system() { "غير متاح لهذا الترميز" } else { "Not available for this codec" })])),
         gtk::Expression::NONE,
     );
     preset_dropdown.set_sensitive(false);
 
     let extra_v_args = Entry::builder()
-        .placeholder_text("وسائط فيديو إضافية (مثال: -pix_fmt yuv420p)")
+        .placeholder_text((if is_arabic_system() { "وسائط فيديو إضافية (مثال: -pix_fmt yuv420p)" } else { "Extra video flags (e.g. -pix_fmt yuv420p)" }))
         .build();
 
-    video_box.append(&Label::new(Some("ترميز الفيديو (-c:v):")));
+    video_box.append(&Label::new(Some((if is_arabic_system() { "ترميز الفيديو (-c:v):" } else { "Video Codec (-c:v):" }))));
     video_box.append(&video_row);
-    video_box.append(&Label::new(Some("معامل الجودة (-crf):")));
+    video_box.append(&Label::new(Some((if is_arabic_system() { "معامل الجودة (-crf):" } else { "Quality Factor (-crf):" }))));
     video_box.append(&crf_entry);
-    video_box.append(&Label::new(Some("معدل البت (-b:v):")));
+    video_box.append(&Label::new(Some((if is_arabic_system() { "معدل البت (-b:v):" } else { "Video Bitrate (-b:v):" }))));
     video_box.append(&v_bitrate_entry);
-    video_box.append(&Label::new(Some("معدل الإطارات (-r):")));
+    video_box.append(&Label::new(Some((if is_arabic_system() { "معدل الإطارات (-r):" } else { "Frame Rate (-r):" }))));
     video_box.append(&fps_entry);
     video_box.append(&preset_label);
     video_box.append(&preset_dropdown);
-    video_box.append(&Label::new(Some("خيارات فيديو مخصصة:")));
+    video_box.append(&Label::new(Some((if is_arabic_system() { "خيارات فيديو مخصصة:" } else { "Custom Video Flags:" }))));
     video_box.append(&extra_v_args);
-    view_stack.add_titled(&video_box, Some("video"), "الفيديو");
+    view_stack.add_titled(&video_box, Some("video"), (if is_arabic_system() { "الفيديو" } else { "Video" }));
 
     // --- التبويب 3: الصوت ---
     let audio_box = make_tab_box();
     let audio_row = Box::builder().orientation(Orientation::Horizontal).spacing(8).build();
     let audio_dropdown = make_dropdown(&caps.audio_encoders, true);
     audio_dropdown.set_hexpand(true);
-    let audio_help_btn = Button::with_label("ℹ️ خيارات الترميز");
+    let audio_help_btn = Button::with_label((if is_arabic_system() { "ℹ️ خيارات الترميز" } else { "ℹ️ Codec Options" }));
     audio_row.append(&audio_dropdown);
     audio_row.append(&audio_help_btn);
 
-    let a_bitrate_entry = Entry::builder().placeholder_text("مثال: 192k").build();
-    let sample_rate_entry = Entry::builder().placeholder_text("مثال: 48000").build();
-    let channels_entry = Entry::builder().placeholder_text("مثال: 2").build();
+    let a_bitrate_entry = Entry::builder().placeholder_text((if is_arabic_system() { "مثال: 192k" } else { "e.g. 192k" })).build();
+    let sample_rate_entry = Entry::builder().placeholder_text((if is_arabic_system() { "مثال: 48000" } else { "e.g. 48000" })).build();
+    let channels_entry = Entry::builder().placeholder_text((if is_arabic_system() { "مثال: 2" } else { "e.g. 2" })).build();
 
-    audio_box.append(&Label::new(Some("ترميز الصوت (-c:a):")));
+    audio_box.append(&Label::new(Some((if is_arabic_system() { "ترميز الصوت (-c:a):" } else { "Audio Codec (-c:a):" }))));
     audio_box.append(&audio_row);
-    audio_box.append(&Label::new(Some("معدل البت (-b:a):")));
+    audio_box.append(&Label::new(Some((if is_arabic_system() { "معدل البت (-b:a):" } else { "Audio Bitrate (-b:a):" }))));
     audio_box.append(&a_bitrate_entry);
-    audio_box.append(&Label::new(Some("تردد العينات (-ar):")));
+    audio_box.append(&Label::new(Some((if is_arabic_system() { "تردد العينات (-ar):" } else { "Sample Rate (-ar):" }))));
     audio_box.append(&sample_rate_entry);
-    audio_box.append(&Label::new(Some("عدد القنوات (-ac):")));
+    audio_box.append(&Label::new(Some((if is_arabic_system() { "عدد القنوات (-ac):" } else { "Audio Channels (-ac):" }))));
     audio_box.append(&channels_entry);
-    view_stack.add_titled(&audio_box, Some("audio"), "الصوت");
+    view_stack.add_titled(&audio_box, Some("audio"), (if is_arabic_system() { "الصوت" } else { "Audio" }));
 
     // --- التبويب 4: الفلاتر ---
     let filters_box = make_tab_box();
     let vf_row = Box::builder().orientation(Orientation::Horizontal).spacing(8).build();
     let vf_dropdown = make_dropdown(&caps.video_filters, true);
     vf_dropdown.set_hexpand(true);
-    let vf_help_btn = Button::with_label("ℹ️ شرح الفلتر");
-    let add_vf_btn = Button::with_label("➕ إضافة");
+    let vf_help_btn = Button::with_label((if is_arabic_system() { "ℹ️ شرح الفلتر" } else { "ℹ️ Filter Help" }));
+    let add_vf_btn = Button::with_label((if is_arabic_system() { "➕ إضافة" } else { "➕ Add" }));
     vf_row.append(&vf_dropdown);
     vf_row.append(&vf_help_btn);
     vf_row.append(&add_vf_btn);
 
     let vf_chain_entry = Entry::builder()
-        .placeholder_text("سلسلة فلاتر الفيديو (-vf) مثال: scale=1920:1080,hflip")
+        .placeholder_text((if is_arabic_system() { "سلسلة فلاتر الفيديو (-vf) مثال: scale=1920:1080,hflip" } else { "Video filter chain (-vf) e.g. scale=1920:1080,hflip" }))
         .build();
 
     let af_row = Box::builder().orientation(Orientation::Horizontal).spacing(8).build();
     let af_dropdown = make_dropdown(&caps.audio_filters, true);
     af_dropdown.set_hexpand(true);
-    let af_help_btn = Button::with_label("ℹ️ شرح الفلتر");
-    let add_af_btn = Button::with_label("➕ إضافة");
+    let af_help_btn = Button::with_label((if is_arabic_system() { "ℹ️ شرح الفلتر" } else { "ℹ️ Filter Help" }));
+    let add_af_btn = Button::with_label((if is_arabic_system() { "➕ إضافة" } else { "➕ Add" }));
     af_row.append(&af_dropdown);
     af_row.append(&af_help_btn);
     af_row.append(&add_af_btn);
 
     let af_chain_entry = Entry::builder()
-        .placeholder_text("سلسلة فلاتر الصوت (-af) مثال: volume=1.5,loudnorm")
+        .placeholder_text((if is_arabic_system() { "سلسلة فلاتر الصوت (-af) مثال: volume=1.5,loudnorm" } else { "Audio filter chain (-af) e.g. volume=1.5,loudnorm" }))
         .build();
 
     let extra_global_args = Entry::builder()
-        .placeholder_text("وسائط عامة إضافية (مثال: -ss 00:01:00 -t 30)")
+        .placeholder_text((if is_arabic_system() { "وسائط عامة إضافية (مثال: -ss 00:01:00 -t 30)" } else { "Extra global flags (e.g. -ss 00:01:00 -t 30)" }))
         .build();
 
     let (vf_dd_c, vf_en_c) = (vf_dropdown.clone(), vf_chain_entry.clone());
@@ -593,15 +610,15 @@ fn build_ui(app: &adw::Application) {
     });
 
     filters_box.append(&build_quick_presets_box(&vf_chain_entry));
-    filters_box.append(&Label::new(Some("فلاتر الفيديو المتاحة:")));
+    filters_box.append(&Label::new(Some((if is_arabic_system() { "فلاتر الفيديو المتاحة:" } else { "Available Video Filters:" }))));
     filters_box.append(&vf_row);
     filters_box.append(&vf_chain_entry);
-    filters_box.append(&Label::new(Some("فلاتر الصوت المتاحة:")));
+    filters_box.append(&Label::new(Some((if is_arabic_system() { "فلاتر الصوت المتاحة:" } else { "Available Audio Filters:" }))));
     filters_box.append(&af_row);
     filters_box.append(&af_chain_entry);
-    filters_box.append(&Label::new(Some("وسائط إضافية حرة:")));
+    filters_box.append(&Label::new(Some((if is_arabic_system() { "وسائط إضافية حرة:" } else { "Custom Global Flags:" }))));
     filters_box.append(&extra_global_args);
-    view_stack.add_titled(&filters_box, Some("filters"), "الفلاتر والأوامر");
+    view_stack.add_titled(&filters_box, Some("filters"), (if is_arabic_system() { "الفلاتر والأوامر" } else { "Filters & Flags" }));
 
     // --- أزرار المساعدة ---
     for (btn, dd, topic) in [
@@ -617,7 +634,7 @@ fn build_ui(app: &adw::Application) {
             if let Some(win) = win_w.upgrade() {
                 let name = get_dropdown_text(&dd_c, "");
                 let help_txt = get_ffmpeg_help(topic, &name);
-                show_help_dialog(&win, &format!("خيارات: {}", name), &help_txt);
+                show_help_dialog(&win, &format!("{}: {}", if is_ar { "خيارات" } else { "Options" }, name), &help_txt);
             }
         });
     }
@@ -633,17 +650,17 @@ fn build_ui(app: &adw::Application) {
         .build();
 
     let cmd_entry = Entry::builder()
-        .placeholder_text("معاينة أمر ffmpeg الكامل (يمكنك تعديله يدوياً قبل التشغيل)")
+        .placeholder_text((if is_arabic_system() { "معاينة أمر ffmpeg الكامل (يمكنك تعديله يدوياً قبل التشغيل)" } else { "Live ffmpeg command preview (editable before running)" }))
         .build();
     let progress_bar = ProgressBar::builder().show_text(true).build();
-    let status_label = Label::new(Some("جاهز للعمل"));
+    let status_label = Label::new(Some((if is_arabic_system() { "جاهز للعمل" } else { "Ready" })));
     status_label.set_wrap(true);
 
     let buttons_row = Box::builder().orientation(Orientation::Horizontal).spacing(12).build();
-    let build_cmd_btn = Button::with_label("🔄 تحديث الأمر من الحقول");
-    let convert_btn = Button::with_label("🚀 بدء التحويل");
+    let build_cmd_btn = Button::with_label((if is_arabic_system() { "🔄 تحديث الأمر من الحقول" } else { "🔄 Refresh Command" }));
+    let convert_btn = Button::with_label((if is_arabic_system() { "🚀 بدء التحويل" } else { "🚀 Start Encoding" }));
     convert_btn.add_css_class("suggested-action");
-    let cancel_btn = Button::with_label("🛑 إيقاف");
+    let cancel_btn = Button::with_label((if is_arabic_system() { "🛑 إيقاف" } else { "🛑 Cancel" }));
     cancel_btn.add_css_class("destructive-action");
     cancel_btn.set_sensitive(false);
 
@@ -651,7 +668,7 @@ fn build_ui(app: &adw::Application) {
     buttons_row.append(&convert_btn);
     buttons_row.append(&cancel_btn);
 
-    bottom_box.append(&Label::new(Some("الأمر النهائي (ينفذ ما هو مكتوب هنا):")));
+    bottom_box.append(&Label::new(Some((if is_arabic_system() { "الأمر النهائي (ينفذ ما هو مكتوب هنا):" } else { "Final Command (executes exact text below):" }))));
     bottom_box.append(&cmd_entry);
     bottom_box.append(&progress_bar);
     bottom_box.append(&buttons_row);
@@ -702,8 +719,8 @@ fn build_ui(app: &adw::Application) {
                     }
                 }
 
-                let p_raw = get_dropdown_text(&pre_dd, "افتراضي");
-                if !p_raw.starts_with("افتراضي") && !p_raw.starts_with("غير متاح") {
+                let p_raw = get_dropdown_text(&pre_dd, (if is_arabic_system() { "افتراضي" } else { "Default" }));
+                if !p_raw.starts_with((if is_arabic_system() { "افتراضي" } else { "Default" })) && !p_raw.starts_with("غير متاح") && !p_raw.starts_with("Default") && !p_raw.starts_with("Not available") {
                     let p_val = p_raw.split_whitespace().next().unwrap_or("").to_string();
                     if !p_val.is_empty() {
                         match p_mode {
@@ -778,23 +795,23 @@ fn build_ui(app: &adw::Application) {
         match mode {
             PresetMode::None => {
                 p_dd_preset.set_sensitive(false);
-                p_lbl_preset.set_text("سرعة الضغط (غير مدعومة لهذا الترميز):");
+                p_lbl_preset.set_text((if is_arabic_system() { "سرعة الضغط (غير مدعومة لهذا الترميز):" } else { "Encoding Speed (Not supported for this codec):" }));
             }
             PresetMode::CpuUsed => {
                 p_dd_preset.set_sensitive(true);
-                p_lbl_preset.set_text("سرعة الضغط (-cpu-used لـ VPX/AV1):");
+                p_lbl_preset.set_text((if is_arabic_system() { "سرعة الضغط (-cpu-used لـ VPX/AV1):" } else { "Encoding Speed (-cpu-used for VPX/AV1):" }));
             }
             PresetMode::SvtAv1 => {
                 p_dd_preset.set_sensitive(true);
-                p_lbl_preset.set_text("سرعة الضغط (-preset 0..13 لـ SVT-AV1):");
+                p_lbl_preset.set_text((if is_arabic_system() { "سرعة الضغط (-preset 0..13 لـ SVT-AV1):" } else { "Encoding Speed (-preset 0..13 for SVT-AV1):" }));
             }
             PresetMode::Nvenc => {
                 p_dd_preset.set_sensitive(true);
-                p_lbl_preset.set_text("سرعة الضغط (-preset p1..p7 لـ NVENC):");
+                p_lbl_preset.set_text((if is_arabic_system() { "سرعة الضغط (-preset p1..p7 لـ NVENC):" } else { "Encoding Speed (-preset p1..p7 for NVENC):" }));
             }
             PresetMode::StandardPreset => {
                 p_dd_preset.set_sensitive(true);
-                p_lbl_preset.set_text("سرعة الضغط (-preset):");
+                p_lbl_preset.set_text((if is_arabic_system() { "سرعة الضغط (-preset):" } else { "Encoding Speed (-preset):" }));
             }
         }
         rp_v();
@@ -828,7 +845,7 @@ fn build_ui(app: &adw::Application) {
         let info_lbl = media_info_label.clone();
         let rp = refresh_preview.clone();
         move |p_str: String| {
-            file_lbl.set_text(&format!("المصدر: {}", p_str));
+            file_lbl.set_text(&format!("{}: {}", if is_ar { "المصدر" } else { "Source" }, p_str));
             info_lbl.set_text(&get_media_info(&p_str));
             *sel_file.borrow_mut() = Some(p_str);
             rp();
@@ -852,7 +869,7 @@ fn build_ui(app: &adw::Application) {
     let set_file_btn = set_file_handler.clone();
     select_btn.connect_clicked(move |_| {
         if let Some(win) = window_weak.upgrade() {
-            let dialog = FileDialog::builder().title("اختر ملفاً").build();
+            let dialog = FileDialog::builder().title((if is_arabic_system() { "اختر ملفاً" } else { "Select Media File" })).build();
             let setter = set_file_btn.clone();
             dialog.open(Some(&win), gio::Cancellable::NONE, move |res| {
                 if let Ok(file) = res {
@@ -869,9 +886,9 @@ fn build_ui(app: &adw::Application) {
     build_cmd_btn.connect_clicked(move |_| {
         if let Some(args) = b_args_c() {
             cmd_en_c.set_text(&format_cmd_preview(&args));
-            st_lbl_c.set_text("تم تحديث الأمر من الحقول.");
+            st_lbl_c.set_text((if is_arabic_system() { "تم تحديث الأمر من الحقول." } else { "Command refreshed from fields." }));
         } else {
-            st_lbl_c.set_text("⚠️ اختر ملف مصدر أولاً!");
+            st_lbl_c.set_text((if is_arabic_system() { "⚠️ اختر ملف مصدر أولاً!" } else { "⚠️ Please select a source file first!" }));
         }
     });
 
@@ -881,7 +898,7 @@ fn build_ui(app: &adw::Application) {
         if let Ok(mut guard) = running_cancel.lock() {
             if let Some(ref mut child) = *guard {
                 let _ = child.kill();
-                st_lbl_cancel.set_text("🛑 تم إيقاف التحويل.");
+                st_lbl_cancel.set_text((if is_arabic_system() { "🛑 تم إيقاف التحويل." } else { "🛑 Encoding cancelled." }));
             }
         }
     });
@@ -907,7 +924,7 @@ fn build_ui(app: &adw::Application) {
                     a
                 }
                 None => {
-                    st_lbl_r.set_text("⚠️ اختر ملف مصدر أولاً!");
+                    st_lbl_r.set_text((if is_arabic_system() { "⚠️ اختر ملف مصدر أولاً!" } else { "⚠️ Please select a source file first!" }));
                     return;
                 }
             }
@@ -927,7 +944,7 @@ fn build_ui(app: &adw::Application) {
             .unwrap_or(0.0);
 
         p_bar_r.set_fraction(0.0);
-        st_lbl_r.set_text("⏳ جاري المعالجة...");
+        st_lbl_r.set_text((if is_arabic_system() { "⏳ جاري المعالجة..." } else { "⏳ Processing..." }));
         c_btn_r.set_sensitive(false);
         x_btn_r.set_sensitive(true);
 
@@ -943,7 +960,7 @@ fn build_ui(app: &adw::Application) {
             {
                 Ok(c) => c,
                 Err(e) => {
-                    let _ = tx.send(ProgressMsg::Done(Err(format!("فشل التشغيل: {}", e))));
+                    let _ = tx.send(ProgressMsg::Done(Err(format!("{}: {}", if is_arabic_system() { "فشل التشغيل" } else { "Launch failed" }, e))));
                     return;
                 }
             };
@@ -981,7 +998,7 @@ fn build_ui(app: &adw::Application) {
 
             match wait_res {
                 Some(Ok(status)) if status.success() => {
-                    let _ = tx.send(ProgressMsg::Done(Ok("✅ اكتمل التحويل بنجاح!".to_string())));
+                    let _ = tx.send(ProgressMsg::Done(Ok((if is_arabic_system() { "✅ اكتمل التحويل بنجاح!" } else { "✅ Encoding completed successfully!" }).to_string())));
                 }
                 Some(Ok(_)) => {
                     let mut err_str = String::new();
@@ -994,7 +1011,7 @@ fn build_ui(app: &adw::Application) {
                     let _ = tx.send(ProgressMsg::Done(Err(format!("❌ توقف أو خطأ:\n{}", joined))));
                 }
                 _ => {
-                    let _ = tx.send(ProgressMsg::Done(Err("❌ تعذر إتمام العملية.".to_string())));
+                    let _ = tx.send(ProgressMsg::Done(Err((if is_arabic_system() { "❌ تعذر إتمام العملية." } else { "❌ Operation failed." }).to_string())));
                 }
             }
         });

@@ -1,6 +1,6 @@
 [Setup]
 AppName=FFmpeg Studio
-AppVersion=0.3.5
+AppVersion=0.3.6
 DefaultDirName={autopf}\FFmpeg Studio
 DefaultGroupName=FFmpeg Studio
 OutputDir=.

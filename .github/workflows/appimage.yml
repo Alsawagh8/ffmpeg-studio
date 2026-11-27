@@ -71,8 +71,8 @@ jobs:
           gh release download continuous -R AppImage/appimagetool -p "appimagetool-x86_64.AppImage"
           chmod +x appimagetool-x86_64.AppImage
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir FFmpeg-Studio-x86_64.AppImage
-      - name: Upload Standalone AppImage to v0.3.5 Release
+      - name: Upload Standalone AppImage to v0.3.6 Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.3.5
+          tag_name: v0.3.6
           files: FFmpeg-Studio-x86_64.AppImage

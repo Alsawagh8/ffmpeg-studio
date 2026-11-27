@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+use std::path::PathBuf;
 use adw::prelude::*;
 use gtk::{
     gdk, gio, glib, Box, Button, DropDown, Entry, FileDialog, Label, Orientation, ProgressBar,
@@ -42,7 +43,7 @@ impl FfmpegCapabilities {
     fn detect() -> Self {
         let mut video_encoders = vec!["copy".to_string(), (if is_arabic_system() { "none (بدون فيديو)" } else { "none (No Video)" }).to_string()];
         let mut audio_encoders = vec!["copy".to_string(), (if is_arabic_system() { "none (بدون صوت)" } else { "none (No Audio)" }).to_string()];
-        let mut formats = Vec::new();
+        let mut formats: Vec<String> = ["mp4","mkv","webm","mov","avi","mp3","m4a","flac","wav","opus","ogg"].iter().map(|x| x.to_string()).collect();
         let mut video_filters = Vec::new();
         let mut audio_filters = Vec::new();
 
@@ -80,7 +81,7 @@ impl FfmpegCapabilities {
                 let trimmed = line.trim();
                 if trimmed.starts_with("E ") && trimmed.len() > 4 {
                     if let Some(name) = trimmed[3..].split_whitespace().next() {
-                        let primary_ext = name.split(',').next().unwrap_or(name);
+                        let raw = name.split(',').next().unwrap_or(name); let primary_ext = if raw == "matroska" { "mkv" } else { raw }; if ["null","hash","framehash","crc","framecrc","uncodedframecrc","ffmetadata","mkvtimestamp_v2","streamhash"].contains(&primary_ext) { continue; }
                         if !formats.contains(&primary_ext.to_string()) {
                             formats.push(primary_ext.to_string());
                         }
@@ -244,6 +245,41 @@ fn format_cmd_preview(args: &[String]) -> String {
     format!("ffmpeg {}", formatted.join(" "))
 }
 
+fn escape_sub(p: &str) -> String { p.replace('\\', "/").replace(':', "\\:").replace('\'', "\\\'") }
+fn open_dir(p: &str) { let d = Path::new(p).parent().filter(|x| !x.as_os_str().is_empty()).unwrap_or(Path::new(".")); #[cfg(target_os = "windows")] let _ = Command::new("explorer").arg(d).spawn(); #[cfg(target_os = "linux")] let _ = Command::new("xdg-open").arg(d).spawn(); }
+
+fn extract_video_thumbnails(video_path: &str) -> Vec<PathBuf> {
+    let mut out_imgs = Vec::new();
+    let dur_out = Command::new("ffprobe")
+        .args(["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path])
+        .output();
+    let dur: f64 = dur_out.ok()
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<f64>().ok())
+        .unwrap_or(10.0)
+        .max(1.0);
+    let tmp_dir = std::env::temp_dir().join("ffmpeg_studio_thumbs");
+    let _ = std::fs::create_dir_all(&tmp_dir);
+    for (idx, pct) in [0.15, 0.35, 0.60, 0.85].iter().enumerate() {
+        let ts = format!("{:.2}", dur * pct);
+        let img_path = tmp_dir.join(format!("thumb_{}.jpg", idx));
+        let _ = std::fs::remove_file(&img_path);
+        let st = Command::new("ffmpeg")
+            .args(["-y", "-ss", &ts, "-i", video_path, "-vframes", "1", "-vf", "scale=480:-2", "-q:v", "4", img_path.to_str().unwrap_or("")])
+            .status();
+        if st.map(|x| x.success()).unwrap_or(false) && img_path.exists() {
+            out_imgs.push(img_path);
+        }
+    }
+    out_imgs
+}
+
+fn probe_sub_tracks(path: &str, is_ar: bool) -> Vec<String> {
+    let mut items = if is_ar { vec!["افتراضي (FFmpeg القياسي)".into(), "كل التراكات (نسخ جميع الترجمات)".into(), "مسح الكل (-sn)".into()] } else { vec!["Default (Standard FFmpeg)".into(), "All Tracks (Copy all)".into(), "Remove All (-sn)".into()] };
+    if let Ok(out) = Command::new("ffprobe").args(["-v","error","-select_streams","s","-show_entries","stream=codec_name:stream_tags=language,title","-of","csv=p=0:s=|",path]).output() {
+        for (i, l) in String::from_utf8_lossy(&out.stdout).lines().enumerate() { let p: Vec<&str> = l.split('|').collect(); items.push(format!("{} {}: {} {} [{}]", if is_ar {"تراك"} else {"Track"}, i, p.get(1).unwrap_or(&""), p.get(2).unwrap_or(&""), p.first().unwrap_or(&"sub"))); }
+    }
+    items
+}
 fn build_default_output_path(input: &str, ext: &str) -> String {
     let p = Path::new(input);
     let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
@@ -466,7 +502,7 @@ fn build_ui(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("FFmpeg Studio v0.3.9")
+        .title("FFmpeg Studio v0.4.0")
         .default_width(780)
         .default_height(600)
         .width_request(360)
@@ -493,8 +529,18 @@ fn build_ui(app: &adw::Application) {
     let media_info_label = Label::new(Some((if is_arabic_system() { "معلومات الملف ستظهر هنا..." } else { "Media information will appear here..." })));
     media_info_label.set_wrap(true);
     media_info_label.set_xalign(0.0);
+    media_info_label.set_xalign(0.0);
+    media_info_label.set_yalign(0.0);
+    media_info_label.set_selectable(true);
+    media_info_label.set_margin_top(12);
+    media_info_label.set_margin_bottom(12);
+    media_info_label.set_margin_start(14);
+    media_info_label.set_margin_end(14);
     let info_scroll = ScrolledWindow::builder()
-        .min_content_height(140)
+        .min_content_height(210)
+        .vexpand(true)
+        .hexpand(true)
+        .css_classes(["card"])
         .child(&media_info_label)
         .build();
 
@@ -505,8 +551,37 @@ fn build_ui(app: &adw::Application) {
     general_box.append(&Label::new(Some((if is_arabic_system() { "مسار الحفظ المخصص:" } else { "Custom Output Path:" }))));
     general_box.append(&output_name_entry);
     general_box.append(&Label::new(Some((if is_arabic_system() { "تفاصيل الملف (ffprobe):" } else { "Media Details (ffprobe):" }))));
-    general_box.append(&info_scroll);
-    view_stack.add_titled(&wrap_in_scroll(&general_box), Some("general"), (if is_arabic_system() { "الملف والصيغة" } else { "File & Format" }));
+    let split_area = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(12)
+        .vexpand(true)
+        .hexpand(true)
+        .homogeneous(false)
+        .build();
+    info_scroll.set_hscrollbar_policy(gtk::PolicyType::Never);
+    info_scroll.set_size_request(360, -1);
+    media_info_label.set_wrap(true);
+    media_info_label.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+
+    let preview_slot = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(8)
+        .vexpand(true)
+        .hexpand(true)
+        .css_classes(["card"])
+        .build();
+    let prev_hint = Label::new(Some(if is_ar { "🖼️ منطقة معاينة لقطات الفيديو" } else { "🖼️ Video Preview Frames Area" }));
+    prev_hint.set_vexpand(true);
+    prev_hint.set_opacity(0.45);
+    preview_slot.append(&prev_hint);
+
+        split_area.append(&info_scroll);
+    split_area.append(&preview_slot);
+    general_box.append(&split_area);
+    split_area.append(&info_scroll);
+    split_area.append(&preview_slot);
+    general_box.append(&split_area);
+    view_stack.add_titled(&wrap_in_scroll(&general_box), Some("general"), if is_ar { "الملف والصيغة" } else { "File & Format" });
 
     // --- التبويب 2: الفيديو ---
     let video_box = make_tab_box();
@@ -542,6 +617,8 @@ fn build_ui(app: &adw::Application) {
     video_box.append(&fps_entry);
     video_box.append(&preset_label);
     video_box.append(&preset_dropdown);
+    let pix_dd = DropDown::new(Some(StringList::new(&if is_ar { vec!["عمق الألوان: 8-bit قياسي (افتراضي)","10-bit (yuv420p10le)","12-bit (yuv420p12le)","تلقائي حسب المصدر"] } else { vec!["Color Depth: 8-bit (Default)","10-bit (yuv420p10le)","12-bit (yuv420p12le)","Auto (Source)"] })), gtk::Expression::NONE);
+    video_box.append(&pix_dd);
     video_box.append(&Label::new(Some((if is_arabic_system() { "خيارات فيديو مخصصة:" } else { "Custom Video Flags:" }))));
     video_box.append(&extra_v_args);
     view_stack.add_titled(&wrap_in_scroll(&video_box), Some("video"), (if is_arabic_system() { "الفيديو" } else { "Video" }));
@@ -568,6 +645,73 @@ fn build_ui(app: &adw::Application) {
     audio_box.append(&Label::new(Some((if is_arabic_system() { "عدد القنوات (-ac):" } else { "Audio Channels (-ac):" }))));
     audio_box.append(&channels_entry);
     view_stack.add_titled(&wrap_in_scroll(&audio_box), Some("audio"), (if is_arabic_system() { "الصوت" } else { "Audio" }));
+
+    let sub_box = make_tab_box();
+    let hb_bar = Box::builder().orientation(Orientation::Horizontal).spacing(6).build();
+    let hb_all_btn = Button::with_label(if is_ar { "✅ كل التراكات" } else { "✅ All Tracks" });
+    let hb_none_btn = Button::with_label(if is_ar { "🚫 إلغاء الكل" } else { "🚫 None" });
+    let hb_scan_btn = Button::with_label(if is_ar { "🔄 فحص التراكات" } else { "🔄 Scan Tracks" });
+    hb_bar.append(&hb_all_btn);
+    hb_bar.append(&hb_none_btn);
+    hb_bar.append(&hb_scan_btn);
+
+    let tracks_list_box = Box::builder().orientation(Orientation::Vertical).spacing(4).build();
+    let empty_trk_lbl = Label::new(Some(if is_ar { "اختر ملف فيديو أو اضغط 'فحص التراكات' لعرض الترجمات الداخلية" } else { "Select a video or click 'Scan Tracks' to list internal subtitles" }));
+    empty_trk_lbl.set_xalign(0.0);
+    tracks_list_box.append(&empty_trk_lbl);
+    let track_checks: Rc<RefCell<Vec<gtk::CheckButton>>> = Rc::new(RefCell::new(Vec::new()));
+
+    let sub_row = Box::builder().orientation(Orientation::Horizontal).spacing(8).build();
+    let sub_sel_btn = Button::with_label(if is_ar { "📂 اختر ملف ترجمة (.ass/.srt)" } else { "📂 Select Subtitle (.ass/.srt)" }); sub_sel_btn.set_hexpand(true);
+    let sub_clr_btn = Button::with_label(if is_ar { "🗑️ مسح" } else { "🗑️ Clear" });
+    sub_row.append(&sub_sel_btn); sub_row.append(&sub_clr_btn);
+    let sub_en = Entry::builder().placeholder_text(if is_ar { "مسار الترجمة الخارجية..." } else { "External subtitle path..." }).build();
+    let sub_mode = DropDown::new(Some(StringList::new(&if is_ar { vec!["بدون ترجمة خارجية","حرق الترجمة (Hardsub)","مسار منفصل (Softsub)"] } else { vec!["No external subtitle","Burn-in (Hardsub)","Soft Subtitle (Softsub)"] })), gtk::Expression::NONE);
+    let sub_size = DropDown::new(Some(StringList::new(&if is_ar { vec!["حجم الخط: افتراضي (تنسيق الملف)","16","20","24","28","34"] } else { vec!["Size: Default (File Style)","16","20","24","28","34"] })), gtk::Expression::NONE);
+    let sub_col = DropDown::new(Some(StringList::new(&if is_ar { vec!["لون الخط: افتراضي (تنسيق الملف)","أبيض","أصفر","سماوي","أخضر"] } else { vec!["Color: Default (File Style)","White","Yellow","Cyan","Lime"] })), gtk::Expression::NONE);
+    let sub_bg = DropDown::new(Some(StringList::new(&if is_ar { vec!["خلفية النص: افتراضي (تنسيق الملف)","إطار + ظل","صندوق أسود","إطار سميك"] } else { vec!["BG: Default (File Style)","Outline + Shadow","Black Box","Thick Outline"] })), gtk::Expression::NONE);
+    let sub_delay = Entry::builder().placeholder_text(if is_ar { "تقديم/تأخير بالثواني (1.5 أو -2)" } else { "Offset in sec (1.5 or -2)" }).build();
+    let sub_lang = Entry::builder().placeholder_text(if is_ar { "رمز اللغة (ara / eng)" } else { "Language code (ara / eng)" }).build();
+    sub_box.append(&hb_bar);
+    sub_box.append(&tracks_list_box); sub_box.append(&sub_row); sub_box.append(&sub_en); sub_box.append(&sub_mode); sub_box.append(&sub_size); sub_box.append(&sub_col); sub_box.append(&sub_bg); sub_box.append(&sub_delay); sub_box.append(&sub_lang);
+    view_stack.add_titled(&wrap_in_scroll(&sub_box), Some("subtitles"), if is_ar { "الترجمة" } else { "Subtitles" });
+    let scan_tracks_fn: Rc<dyn Fn()> = {
+        let (tlb, tcs, sel_f) = (tracks_list_box.clone(), track_checks.clone(), selected_file.clone());
+        Rc::new(move || {
+            while let Some(child) = tlb.first_child() { tlb.remove(&child); }
+            tcs.borrow_mut().clear();
+            if let Some(ref path) = *sel_f.borrow() {
+                let trs = probe_sub_tracks(path, is_arabic_system());
+                let real_tracks: Vec<&String> = trs.iter().skip(3).collect();
+                if real_tracks.is_empty() {
+                    let lbl = Label::new(Some(if is_arabic_system() { "لا توجد مسارات ترجمة داخلية في هذا الفيديو" } else { "No internal subtitle tracks found in this video" }));
+                    lbl.set_xalign(0.0);
+                    tlb.append(&lbl);
+                } else {
+                    for tr in real_tracks {
+                        let cb = gtk::CheckButton::with_label(tr);
+                        cb.set_active(false);
+                        tlb.append(&cb);
+                        tcs.borrow_mut().push(cb);
+                    }
+                }
+            }
+        })
+    };
+
+    let sc_on_change = scan_tracks_fn.clone();
+    output_name_entry.connect_changed(move |_| { sc_on_change(); });
+    let sc_on_btn = scan_tracks_fn.clone();
+    hb_scan_btn.connect_clicked(move |_| { sc_on_btn(); });
+
+    let tcs_all = track_checks.clone();
+    hb_all_btn.connect_clicked(move |_| {
+        for cb in tcs_all.borrow().iter() { cb.set_active(true); }
+    });
+    let tcs_none = track_checks.clone();
+    hb_none_btn.connect_clicked(move |_| {
+        for cb in tcs_none.borrow().iter() { cb.set_active(false); }
+    });
 
     // --- التبويب 4: الفلاتر ---
     let filters_box = make_tab_box();
@@ -678,7 +822,15 @@ fn build_ui(app: &adw::Application) {
 
     buttons_row.append(&build_cmd_btn);
     buttons_row.append(&convert_btn);
+    let (ws, es, ms, szs, cls, bgs) = (window.downgrade(), sub_en.clone(), sub_mode.clone(), sub_size.clone(), sub_col.clone(), sub_bg.clone());
+    sub_sel_btn.connect_clicked(move |_| { if let Some(w) = ws.upgrade() { let (ec, mc, szc, clc, bgc) = (es.clone(), ms.clone(), szs.clone(), cls.clone(), bgs.clone()); FileDialog::builder().build().open(Some(&w), gio::Cancellable::NONE, move |r| { if let Ok(f) = r { if let Some(p) = f.path() { let ps = p.to_string_lossy().to_string(); ec.set_text(&ps); if mc.selected()==0 { mc.set_selected(1); } if ps.to_lowercase().ends_with(".ass") { szc.set_selected(0); clc.set_selected(0); bgc.set_selected(0); } } } }); } });
+    let (ec2, mc2) = (sub_en.clone(), sub_mode.clone()); sub_clr_btn.connect_clicked(move |_| { ec2.set_text(""); mc2.set_selected(0); });
+    let open_dir_btn = Button::with_label(if is_ar { "📂 فتح المجلد" } else { "📂 Open Folder" });
+    let (so, oo) = (selected_file.clone(), output_name_entry.clone());
+    open_dir_btn.connect_clicked(move |_| { let c = oo.text().trim().to_string(); if !c.is_empty() { open_dir(&c); } else if let Some(ref i) = *so.borrow() { open_dir(i); } });
+
     buttons_row.append(&cancel_btn);
+    buttons_row.append(&open_dir_btn);
 
     bottom_box.append(&Label::new(Some((if is_arabic_system() { "الأمر النهائي (ينفذ ما هو مكتوب هنا):" } else { "Final Command (executes exact text below):" }))));
     bottom_box.append(&cmd_entry);
@@ -703,7 +855,7 @@ fn build_ui(app: &adw::Application) {
         let ac_en = channels_entry.clone();
         let vf_en = vf_chain_entry.clone();
         let af_en = af_chain_entry.clone();
-        let eg_en = extra_global_args.clone();
+        let eg_en = extra_global_args.clone(); let (px_d, tcs_d, s_en, s_md, s_sz, s_cl, s_bg, s_dl, s_lg) = (pix_dd.clone(), track_checks.clone(), sub_en.clone(), sub_mode.clone(), sub_size.clone(), sub_col.clone(), sub_bg.clone(), sub_delay.clone(), sub_lang.clone());
 
         move || -> Option<Vec<String>> {
             let input = sel.borrow().clone()?;
@@ -717,12 +869,15 @@ fn build_ui(app: &adw::Application) {
             args.push("-i".to_string());
             args.push(input.clone());
 
-            let vc = get_dropdown_text(&v_dd, "copy");
+            let sp = s_en.text().trim().to_string(); let sm = s_md.selected(); let sd = s_dl.text().trim().to_string();
+            if sm == 2 && !sp.is_empty() { if !sd.is_empty() { args.extend(["-itsoffset".into(), sd]); } args.extend(["-i".into(), sp.clone()]); }
+            let mut vc = get_dropdown_text(&v_dd, "copy");
+            if vc == "copy" && (!vf_en.text().trim().is_empty() || (sm == 1 && !sp.is_empty())) { vc = "libx264".into(); }
             if vc.starts_with("none") {
                 args.push("-vn".to_string());
             } else {
                 let p_mode = detect_preset_mode(&vc);
-                args.extend(["-c:v".to_string(), vc]);
+                args.extend(["-c:v".to_string(), vc.clone()]);
 
                 for (flag, entry) in [("-crf", &crf_en), ("-b:v", &vb_en), ("-r", &fps_en)] {
                     let val = entry.text().trim().to_string();
@@ -744,6 +899,7 @@ fn build_ui(app: &adw::Application) {
                 }
 
                 let ev = ev_en.text().to_string();
+                if !vc.starts_with("copy") && !ev.contains("-pix_fmt") { match px_d.selected() { 0 => args.extend(["-pix_fmt".into(),"yuv420p".into()]), 1 => args.extend(["-pix_fmt".into(),"yuv420p10le".into()]), 2 => args.extend(["-pix_fmt".into(),"yuv420p12le".into()]), _ => {} } }
                 if !ev.trim().is_empty() {
                     args.extend(parse_shell_args(&ev));
                 }
@@ -762,11 +918,32 @@ fn build_ui(app: &adw::Application) {
                 }
             }
 
-            for (flag, entry) in [("-vf", &vf_en), ("-af", &af_en)] {
-                let val = entry.text().trim().to_string();
-                if !val.is_empty() {
-                    args.extend([flag.to_string(), val]);
+            let mut vfs = Vec::new();
+            if !vf_en.text().trim().is_empty() { vfs.push(vf_en.text().trim().to_string()); }
+            if sm == 1 && !sp.is_empty() {
+                let mut st = Vec::new();
+                if s_sz.selected() > 0 { st.push(format!("FontSize={}", ["","16","20","24","28","34"][s_sz.selected() as usize])); }
+                if s_cl.selected() > 0 { st.push(format!("PrimaryColour={}", ["","&H00FFFFFF","&H0000FFFF","&H00FFFF00","&H0000FF00"][s_cl.selected() as usize])); }
+                if s_bg.selected() == 1 { st.push("BorderStyle=1,Outline=1.5,Shadow=1".into()); } else if s_bg.selected() == 2 { st.push("BorderStyle=3,BackColour=&H80000000".into()); } else if s_bg.selected() == 3 { st.push("BorderStyle=1,Outline=2.5,Shadow=0".into()); }
+                vfs.push(if st.is_empty() { format!("subtitles='{}'", escape_sub(&sp)) } else { format!("subtitles='{}':force_style='{}'", escape_sub(&sp), st.join(",")) });
+            }
+            if !vfs.is_empty() { args.extend(["-vf".into(), vfs.join(",")]); }
+            if !af_en.text().trim().is_empty() { args.extend(["-af".into(), af_en.text().trim().to_string()]); }
+            let ext_c = get_dropdown_text(&fmt_dd, "mp4").to_lowercase(); let is_mp4 = ext_c == "mp4" || ext_c == "mov";
+            if !["mp3","m4a","flac","wav","opus","ogg"].contains(&ext_c.as_str()) {
+                let cbs = tcs_d.borrow();
+                let active_idxs: Vec<usize> = cbs.iter().enumerate().filter(|(_, c)| c.is_active()).map(|(i, _)| i).collect();
+                if !cbs.is_empty() && !active_idxs.is_empty() {
+                    args.extend(["-map".into(), "0:v:0".into(), "-map".into(), "0:a?".into()]);
+                    for idx in &active_idxs {
+                        args.extend(["-map".into(), format!("0:s:{}", idx)]);
+                    }
+                    if sm == 2 && !sp.is_empty() { args.extend(["-map".into(), "1:0".into()]); }
+                    args.extend(["-c:s".into(), if is_mp4 { "mov_text" } else { "copy" }.into()]);
+                } else if sm == 2 && !sp.is_empty() {
+                    args.extend(["-map".into(), "0:v:0".into(), "-map".into(), "0:a?".into(), "-map".into(), "1:0".into(), "-c:s".into(), if is_mp4 { "mov_text" } else { "copy" }.into()]);
                 }
+                let lg = s_lg.text().trim().to_string(); if sm == 2 && !sp.is_empty() && !lg.is_empty() { args.extend(["-metadata:s:s:0".into(), format!("language={}", lg)]); }
             }
 
             let ext = get_dropdown_text(&fmt_dd, "mp4");
@@ -829,7 +1006,7 @@ fn build_ui(app: &adw::Application) {
         rp_v();
     });
 
-    for dd in [&format_dropdown, &preset_dropdown, &audio_dropdown] {
+    for dd in [&format_dropdown, &preset_dropdown, &audio_dropdown, &pix_dd, &sub_mode, &sub_size, &sub_col, &sub_bg] {
         let rp = refresh_preview.clone();
         dd.connect_selected_notify(move |_| rp());
     }
@@ -844,7 +1021,7 @@ fn build_ui(app: &adw::Application) {
         &channels_entry,
         &vf_chain_entry,
         &af_chain_entry,
-        &extra_global_args,
+        &extra_global_args, &sub_en, &sub_delay, &sub_lang,
     ] {
         let rp = refresh_preview.clone();
         en.connect_changed(move |_| rp());
@@ -855,10 +1032,77 @@ fn build_ui(app: &adw::Application) {
         let file_lbl = file_label.clone();
         let sel_file = selected_file.clone();
         let info_lbl = media_info_label.clone();
+        let pbox = preview_slot.clone();
+        let sc_fn = scan_tracks_fn.clone();
         let rp = refresh_preview.clone();
         move |p_str: String| {
             file_lbl.set_text(&format!("{}: {}", if is_ar { "المصدر" } else { "Source" }, p_str));
-            info_lbl.set_text(&get_media_info(&p_str));
+            let mut out_lines = Vec::new();
+            if let Ok(meta) = std::fs::metadata(&p_str) { out_lines.push(format!("• 📁 <b>Size:</b> {:.1} MB", meta.len() as f64 / 1048576.0)); }
+            if let Ok(o) = Command::new("ffprobe").args(["-v","error","-show_entries","format=duration:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels,bit_rate:stream_tags=language,title","-of","default=noprint_wrappers=1",&p_str]).output() {
+                let mut streams = Vec::new(); let mut cur = std::collections::HashMap::new(); let mut in_st = false;
+                for ln in String::from_utf8_lossy(&o.stdout).lines() {
+                    if let Some((k, v)) = ln.split_once('=') {
+                        if k == "duration" { if let Ok(d) = v.parse::<f64>() { out_lines.push(format!("• ⏱️ <b>Duration:</b> {:02}:{:02}", (d as u64)/60, (d as u64)%60)); } }
+                        else if k == "index" { if in_st && !cur.is_empty() { streams.push(cur.clone()); cur.clear(); } in_st = true; }
+                        else if in_st { cur.insert(k.to_string(), v.to_string()); }
+                    }
+                }
+                if in_st && !cur.is_empty() { streams.push(cur); }
+                let mut subs = Vec::new();
+                for st in streams {
+                    let tp = st.get("codec_type").map(|x| x.as_str()).unwrap_or("");
+                    let cd = st.get("codec_name").map(|x| x.to_uppercase()).unwrap_or_default();
+                    if tp == "video" {
+                        let w = st.get("width").cloned().unwrap_or_default(); let h = st.get("height").cloned().unwrap_or_default();
+                        let mut fps_s = String::new();
+                        if let Some((n, d)) = st.get("r_frame_rate").and_then(|x| x.split_once('/')) { if let (Ok(nf), Ok(df)) = (n.parse::<f64>(), d.parse::<f64>()) { if df > 0.0 { fps_s = format!(" | {:.2} fps", nf/df); } } }
+                        out_lines.push(format!("\n• 🎬 <b>Video</b>\n   • {} | {}×{}{}", cd, w, h, fps_s));
+                    } else if tp == "audio" {
+                        let lg = st.get("TAG:language").cloned().unwrap_or_default(); let sr = st.get("sample_rate").cloned().unwrap_or_default();
+                        let ch = st.get("channels").cloned().unwrap_or_default();
+                        let br = st.get("bit_rate").and_then(|x| x.parse::<u64>().ok()).map(|b| format!(" | {} kbps", b / 1000)).unwrap_or_default();
+                        out_lines.push(format!("\n• 🔊 <b>Audio ({})</b>\n   • {} | {} Hz | {} ch{}", lg, cd, sr, ch, br));
+                    } else if tp == "subtitle" {
+                        let lg = st.get("TAG:language").cloned().unwrap_or_else(|| "und".into()); let ti = st.get("TAG:title").cloned().unwrap_or_default();
+                        subs.push(format!("{} {} [{}]", gtk::glib::markup_escape_text(&lg), gtk::glib::markup_escape_text(&ti), cd));
+                    }
+                }
+                if !subs.is_empty() { out_lines.push(format!("\n• 💬 <b>Subtitles ({})</b>", subs.len())); for sb in subs { out_lines.push(format!("   • {}", sb)); } }
+            }
+            info_lbl.set_markup(&format!("<span size='large'>{}</span>", out_lines.join("\n")));
+            sc_fn();
+            let vpath_owned = p_str.clone();
+            let pbox_c = pbox.clone();
+            while let Some(c) = pbox_c.first_child() { pbox_c.remove(&c); }
+            let loading = Label::new(Some(if is_ar { "⏳ جاري استخراج لقطات المعاينة..." } else { "⏳ Generating preview frames..." }));
+            loading.set_vexpand(true);
+            pbox_c.append(&loading);
+            let (tx, rx) = std::sync::mpsc::channel::<Vec<PathBuf>>();
+            std::thread::spawn(move || { let _ = tx.send(extract_video_thumbnails(&vpath_owned)); });
+            glib::timeout_add_local(std::time::Duration::from_millis(120), move || {
+                match rx.try_recv() {
+                    Ok(imgs) => {
+                        while let Some(c) = pbox_c.first_child() { pbox_c.remove(&c); }
+                        if imgs.is_empty() {
+                            let no_img = Label::new(Some(if is_ar { "🎵 ملف صوتي أو بدون إطارات" } else { "🎵 Audio or no frames" }));
+                            no_img.set_vexpand(true);
+                            pbox_c.append(&no_img);
+                        } else {
+                            let grid = gtk::Grid::builder().row_spacing(6).column_spacing(6).row_homogeneous(true).column_homogeneous(true).vexpand(true).hexpand(true).margin_top(8).margin_bottom(8).margin_start(8).margin_end(8).build();
+                            for (i, img_p) in imgs.iter().enumerate() {
+                                let pic = gtk::Picture::for_file(&gio::File::for_path(img_p));
+                                pic.set_can_shrink(true); pic.set_hexpand(true); pic.set_vexpand(true);
+                                grid.attach(&pic, (i % 2) as i32, (i / 2) as i32, 1, 1);
+                            }
+                            pbox_c.append(&grid);
+                        }
+                        glib::ControlFlow::Break
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+                    Err(_) => glib::ControlFlow::Break,
+                }
+            });
             *sel_file.borrow_mut() = Some(p_str);
             rp();
         }

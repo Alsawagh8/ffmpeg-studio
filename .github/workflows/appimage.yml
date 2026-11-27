@@ -1,0 +1,76 @@
+name: Build Standalone AppImage (With Bundled GTK4 & FFmpeg)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/appimage.yml'
+      - 'src/main.rs'
+
+permissions:
+  contents: write
+
+jobs:
+  build-appimage:
+    name: Build Full Standalone Linux AppImage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Build & Bundling Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libgtk-4-dev libadwaita-1-dev patchelf desktop-file-utils libgdk-pixbuf2.0-dev librsvg2-dev appstream xz-utils github-cli
+      - name: Build Binary
+        run: cargo build --release
+      - name: Bundle All Libraries, Schemas, Icons & FFmpeg into AppDir
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/lib AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps AppDir/usr/share/glib-2.0/schemas
+          cp target/release/ffmpeg-gui AppDir/usr/bin/
+          cp assets/ffmpeg-studio.svg AppDir/usr/share/icons/hicolor/scalable/apps/
+
+          # تحميل ودمج ffmpeg و ffprobe الثابتين داخل AppDir
+          curl -fSL "https://://johnvansickle.com" -o ffmpeg-static.tar.xz
+          mkdir -p ff-tmp && tar -xJf ffmpeg-static.tar.xz -C ff-tmp --strip-components=1
+          cp ff-tmp/ffmpeg ff-tmp/ffprobe AppDir/usr/bin/
+          chmod +x AppDir/usr/bin/ffmpeg AppDir/usr/bin/ffprobe
+
+          # نسخ جميع مكتبات GTK4 و Libadwaita المشتركة داخل AppDir/usr/lib
+          ldd target/release/ffmpeg-gui | grep "=> /" | awk '{print $3}' | grep -vE 'libc.so|libm.so|libdl.so|libpthread.so|librt.so|ld-linux' | xargs -I '{}' cp -v '{}' AppDir/usr/lib/ || true
+
+          # نسخ ملفات gschemas وأيقونات Adwaita الضرورية لواجهة GTK4
+          cp -r /usr/share/glib-2.0/schemas/* AppDir/usr/share/glib-2.0/schemas/ 2>/dev/null || true
+          glib-compile-schemas AppDir/usr/share/glib-2.0/schemas/ || true
+          cp -r /usr/share/icons/Adwaita AppDir/usr/share/icons/ 2>/dev/null || true
+
+          cat << 'DESKTOP' > AppDir/usr/share/applications/ffmpeg-studio.desktop
+          [Desktop Entry]
+          Name=FFmpeg Studio
+          Exec=ffmpeg-gui
+          Icon=ffmpeg-studio
+          Type=Application
+          Categories=AudioVideo;
+          DESKTOP
+
+          cat << 'APPRUN' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+          export GSETTINGS_SCHEMA_DIR="${HERE}/usr/share/glib-2.0/schemas"
+          exec "${HERE}/usr/bin/ffmpeg-gui" "$@"
+          APPRUN
+          chmod +x AppDir/AppRun
+
+          cp AppDir/usr/share/applications/ffmpeg-studio.desktop AppDir/
+          cp AppDir/usr/share/icons/hicolor/scalable/apps/ffmpeg-studio.svg AppDir/
+
+          GH_TOKEN="${{ github.token }}" gh release download continuous -R AppImage/appimagetool -p "appimagetool-x86_64.AppImage"
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir FFmpeg-Studio-x86_64.AppImage
+      - name: Upload Standalone AppImage to v0.3.5 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.3.5
+          files: FFmpeg-Studio-x86_64.AppImage

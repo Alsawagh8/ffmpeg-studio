@@ -3,10 +3,8 @@ name: Build Full Windows Installer (Signed Setup.exe)
 on:
   workflow_dispatch:
   push:
-    paths:
-      - '.github/workflows/windows-installer.yml'
-      - 'installer.iss'
-      - 'build.rs'
+    tags:
+      - 'v*'
 
 permissions:
   contents: write

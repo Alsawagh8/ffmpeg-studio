@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=FFmpeg Studio
+Name[ar]=استوديو FFmpeg
+Comment=Modern graphical interface for FFmpeg
+Comment[ar]=واجهة رسومية حديثة وسريعة لأداة FFmpeg
+Exec=ffmpeg-gui
+Icon=org.archlinux.FfmpegGui
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Audio;GTK;
+Keywords=ffmpeg;video;audio;converter;encoder;transcode;
+StartupNotify=true

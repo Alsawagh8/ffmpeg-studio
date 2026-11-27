@@ -22,6 +22,8 @@ modules:
       - cargo build --release --offline
       - install -Dm755 target/release/ffmpeg-gui /app/bin/ffmpeg-gui
       - install -Dm644 assets/ffmpeg-studio.svg /app/share/icons/hicolor/scalable/apps/org.archlinux.FfmpegGui.svg
+      - install -Dm644 assets/org.archlinux.FfmpegGui.desktop /app/share/applications/org.archlinux.FfmpegGui.desktop
+      - install -Dm644 assets/org.archlinux.FfmpegGui.metainfo.xml /app/share/metainfo/org.archlinux.FfmpegGui.metainfo.xml
     sources:
       - type: dir
         path: .

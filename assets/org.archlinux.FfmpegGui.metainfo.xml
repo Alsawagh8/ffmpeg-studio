@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.archlinux.FfmpegGui</id>
+  <name>FFmpeg Studio</name>
+  <name xml:lang="ar">استوديو FFmpeg</name>
+  <summary>Fast, modern graphical interface for FFmpeg</summary>
+  <summary xml:lang="ar">واجهة رسومية حديثة وسريعة لأداة FFmpeg</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.alsawagh8">
+    <name>Alsawagh8</name>
+  </developer>
+  <description>
+    <p>
+      FFmpeg Studio is a lightweight, native GTK4 and Libadwaita graphical user interface for FFmpeg written in Rust. It automatically detects all installed video and audio codecs, formats, and filters, and bundles FFmpeg and FFprobe ready to use out of the box.
+    </p>
+    <p xml:lang="ar">
+      استوديو FFmpeg هو واجهة رسومية خفيفة وسريعة مبنية بلغة Rust ومكتبتي GTK4 و Libadwaita. يتعرف التطبيق تلقائياً على جميع الترميزات والصيغ والفلاتر المثبتة، ويأتي مدمجاً بأداتي FFmpeg و FFprobe جاهزتين للعمل مباشرة مع دعم تلقائي للغتين العربية والإنجليزية.
+    </p>
+    <ul>
+      <li>Dynamic detection of encoders, muxers, and audio/video filters</li>
+      <li>Quick presets for resolution scaling, color spaces (BT.709, HDR to SDR), and sharpening</li>
+      <li>Live editable FFmpeg command preview and real-time progress bar</li>
+      <li>Automatic bilingual interface (Arabic RTL and English default)</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">org.archlinux.FfmpegGui.desktop</launchable>
+  <url type="homepage">https://github.com</url>
+  <url type="bugtracker">https://github.com/issues</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.3.9" date="2026-11-27">
+      <description>
+        <p>Responsive scrollable layout for all screen resolutions, full AppStream metadata for software stores, and bundled FFmpeg/FFprobe.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -59,10 +59,10 @@ jobs:
           & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint "FFmpeg-Studio-Windows\ffmpeg-gui.exe"
           iscc installer.iss
           & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint "FFmpeg-Studio-Windows-Setup.exe"
-      - name: Upload Updated Windows Setup to v0.3.8 Release
+      - name: Upload Updated Windows Setup to v0.3.9 Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.3.8
+          tag_name: v0.3.9
           files: |
             FFmpeg-Studio-Windows-Setup.exe
             FFmpeg-Studio-Cert.cer

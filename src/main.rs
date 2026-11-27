@@ -341,6 +341,16 @@ fn get_dropdown_text(dd: &DropDown, default: &str) -> String {
         .unwrap_or_else(|| default.to_string())
 }
 
+
+fn wrap_in_scroll(child: &impl IsA<gtk::Widget>) -> ScrolledWindow {
+    ScrolledWindow::builder()
+        .vexpand(true)
+        .hexpand(true)
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .child(child)
+        .build()
+}
+
 fn make_tab_box() -> Box {
     Box::builder()
         .orientation(Orientation::Vertical)
@@ -457,8 +467,10 @@ fn build_ui(app: &adw::Application) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title("FFmpeg Studio v0.3.6")
-        .default_width(820)
-        .default_height(660)
+        .default_width(780)
+        .default_height(600)
+        .width_request(360)
+        .height_request(420)
         .build();
 
     // --- التبويب 1: الملف والصيغة ---
@@ -532,7 +544,7 @@ fn build_ui(app: &adw::Application) {
     video_box.append(&preset_dropdown);
     video_box.append(&Label::new(Some((if is_arabic_system() { "خيارات فيديو مخصصة:" } else { "Custom Video Flags:" }))));
     video_box.append(&extra_v_args);
-    view_stack.add_titled(&video_box, Some("video"), (if is_arabic_system() { "الفيديو" } else { "Video" }));
+    view_stack.add_titled(&wrap_in_scroll(&video_box), Some("video"), (if is_arabic_system() { "الفيديو" } else { "Video" }));
 
     // --- التبويب 3: الصوت ---
     let audio_box = make_tab_box();
@@ -555,7 +567,7 @@ fn build_ui(app: &adw::Application) {
     audio_box.append(&sample_rate_entry);
     audio_box.append(&Label::new(Some((if is_arabic_system() { "عدد القنوات (-ac):" } else { "Audio Channels (-ac):" }))));
     audio_box.append(&channels_entry);
-    view_stack.add_titled(&audio_box, Some("audio"), (if is_arabic_system() { "الصوت" } else { "Audio" }));
+    view_stack.add_titled(&wrap_in_scroll(&audio_box), Some("audio"), (if is_arabic_system() { "الصوت" } else { "Audio" }));
 
     // --- التبويب 4: الفلاتر ---
     let filters_box = make_tab_box();

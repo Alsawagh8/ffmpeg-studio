@@ -1,3 +1,4 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use adw::prelude::*;
 use gtk::{
     gdk, gio, glib, Box, Button, DropDown, Entry, FileDialog, Label, Orientation, ProgressBar,

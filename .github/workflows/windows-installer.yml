@@ -28,21 +28,19 @@ jobs:
             mingw-w64-ucrt-x86_64-gtk4
             mingw-w64-ucrt-x86_64-libadwaita
             mingw-w64-ucrt-x86_64-ffmpeg
-      - name: Build Windows GUI Binary
+      - name: Build & Collect Runtime in MSYS2
         shell: msys2 {0}
-        run: export PATH="/ucrt64/bin:$PATH" && cargo build --release
-      - name: Bundle Runtime, GTK4 DLLs & FFmpeg
-        shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path FFmpeg-Studio-Windows/share/glib-2.0/schemas | Out-Null
-          New-Item -ItemType Directory -Force -Path FFmpeg-Studio-Windows/share/icons | Out-Null
-          Copy-Item target/release/ffmpeg-gui.exe FFmpeg-Studio-Windows/
-          Copy-Item C:\msys64\ucrt64\bin\ffmpeg.exe FFmpeg-Studio-Windows/
-          Copy-Item C:\msys64\ucrt64\bin\ffprobe.exe FFmpeg-Studio-Windows/
-          Copy-Item C:\msys64\ucrt64\bin\*.dll FFmpeg-Studio-Windows/ -ErrorAction SilentlyContinue
-          Copy-Item C:\msys64\ucrt64\share\glib-2.0\schemas\gschemas.compiled FFmpeg-Studio-Windows/share/glib-2.0/schemas/ -ErrorAction SilentlyContinue
-          Copy-Item -Recurse C:\msys64\ucrt64\share\icons\Adwaita FFmpeg-Studio-Windows/share/icons/ -ErrorAction SilentlyContinue
-          Copy-Item -Recurse C:\msys64\ucrt64\share\icons\hicolor FFmpeg-Studio-Windows/share/icons/ -ErrorAction SilentlyContinue
+          export PATH="/ucrt64/bin:$PATH"
+          cargo build --release
+          mkdir -p FFmpeg-Studio-Windows/share/glib-2.0/schemas FFmpeg-Studio-Windows/share/icons
+          cp target/release/ffmpeg-gui.exe FFmpeg-Studio-Windows/
+          cp /ucrt64/bin/ffmpeg.exe FFmpeg-Studio-Windows/
+          cp /ucrt64/bin/ffprobe.exe FFmpeg-Studio-Windows/
+          cp /ucrt64/bin/*.dll FFmpeg-Studio-Windows/ 2>/dev/null || true
+          cp /ucrt64/share/glib-2.0/schemas/gschemas.compiled FFmpeg-Studio-Windows/share/glib-2.0/schemas/ 2>/dev/null || true
+          cp -r /ucrt64/share/icons/Adwaita FFmpeg-Studio-Windows/share/icons/ 2>/dev/null || true
+          cp -r /ucrt64/share/icons/hicolor FFmpeg-Studio-Windows/share/icons/ 2>/dev/null || true
       - name: Compile Windows Installer (Setup.exe)
         shell: pwsh
         run: iscc installer.iss

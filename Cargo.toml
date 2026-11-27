@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 gtk = { version = "0.9", package = "gtk4", features = ["v4_12"] }
 adw = { version = "0.7", package = "libadwaita", features = ["v1_4"] }
+
+[target."cfg(windows)".build-dependencies]
+winres = "0.1"

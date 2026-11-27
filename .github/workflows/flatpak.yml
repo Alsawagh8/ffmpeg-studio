@@ -17,10 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Vendor Cargo Dependencies Offline
+      - name: Vendor Cargo & Download Static FFmpeg
         run: |
-          mkdir -p .cargo
+          mkdir -p .cargo bundled-bin ff-tmp
           cargo vendor > .cargo/config.toml
+          curl -fSL "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz" -o ffmpeg-static.tar.xz
+          tar -xJf ffmpeg-static.tar.xz -C ff-tmp --strip-components=1
+          cp ff-tmp/ffmpeg ff-tmp/ffprobe bundled-bin/
+          rm -rf ff-tmp ffmpeg-static.tar.xz
       - name: Install Flatpak Builder
         run: |
           sudo apt-get update

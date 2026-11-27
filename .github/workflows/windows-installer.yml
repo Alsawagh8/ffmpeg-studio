@@ -1,11 +1,14 @@
-name: Build Full Windows Installer (Setup.exe)
+name: Build Full Windows Installer (Signed Setup.exe)
 
 on:
   workflow_dispatch:
   push:
+    tags:
+      - 'v*'
     paths:
       - '.github/workflows/windows-installer.yml'
       - 'installer.iss'
+      - 'build.rs'
       - 'src/main.rs'
 
 permissions:
@@ -13,7 +16,7 @@ permissions:
 
 jobs:
   build-windows-setup:
-    name: Build Standalone Windows Setup.exe
+    name: Build & Sign Standalone Windows Setup.exe
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,10 +31,12 @@ jobs:
             mingw-w64-ucrt-x86_64-gtk4
             mingw-w64-ucrt-x86_64-libadwaita
             mingw-w64-ucrt-x86_64-ffmpeg
-      - name: Build & Collect Runtime in MSYS2
+            mingw-w64-ucrt-x86_64-imagemagick
+      - name: Generate Windows Icon & Build Binary in MSYS2
         shell: msys2 {0}
         run: |
           export PATH="/ucrt64/bin:$PATH"
+          magick -background none assets/ffmpeg-studio.svg -define icon:auto-resize=256,128,64,48,32,16 assets/ffmpeg-studio.ico
           cargo build --release
           mkdir -p FFmpeg-Studio-Windows/share/glib-2.0/schemas FFmpeg-Studio-Windows/share/icons
           cp target/release/ffmpeg-gui.exe FFmpeg-Studio-Windows/
@@ -41,11 +46,19 @@ jobs:
           cp /ucrt64/share/glib-2.0/schemas/gschemas.compiled FFmpeg-Studio-Windows/share/glib-2.0/schemas/ 2>/dev/null || true
           cp -r /ucrt64/share/icons/Adwaita FFmpeg-Studio-Windows/share/icons/ 2>/dev/null || true
           cp -r /ucrt64/share/icons/hicolor FFmpeg-Studio-Windows/share/icons/ 2>/dev/null || true
-      - name: Compile Windows Installer (Setup.exe)
+      - name: Sign Application & Compile Signed Installer
         shell: pwsh
-        run: iscc installer.iss
-      - name: Upload Setup.exe to v0.3.6 Release
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Alsawagh8, O=FFmpeg Studio" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
+          Export-Certificate -Cert $cert -FilePath "FFmpeg-Studio-Cert.cer" | Out-Null
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1 -ExpandProperty FullName
+          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint /t http://digicert.com "FFmpeg-Studio-Windows\ffmpeg-gui.exe"
+          iscc installer.iss
+          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint /t http://digicert.com "FFmpeg-Studio-Windows-Setup.exe"
+      - name: Upload Signed Setup & Certificate to Release
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          tag_name: v0.3.6
-          files: FFmpeg-Studio-Windows-Setup.exe
+          files: |
+            FFmpeg-Studio-Windows-Setup.exe
+            FFmpeg-Studio-Cert.cer

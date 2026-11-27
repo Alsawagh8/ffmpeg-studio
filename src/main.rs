@@ -506,7 +506,7 @@ fn build_ui(app: &adw::Application) {
     general_box.append(&output_name_entry);
     general_box.append(&Label::new(Some((if is_arabic_system() { "تفاصيل الملف (ffprobe):" } else { "Media Details (ffprobe):" }))));
     general_box.append(&info_scroll);
-    view_stack.add_titled(&general_box, Some("general"), (if is_arabic_system() { "الملف والصيغة" } else { "File & Format" }));
+    view_stack.add_titled(&wrap_in_scroll(&general_box), Some("general"), (if is_arabic_system() { "الملف والصيغة" } else { "File & Format" }));
 
     // --- التبويب 2: الفيديو ---
     let video_box = make_tab_box();
@@ -630,7 +630,7 @@ fn build_ui(app: &adw::Application) {
     filters_box.append(&af_chain_entry);
     filters_box.append(&Label::new(Some((if is_arabic_system() { "وسائط إضافية حرة:" } else { "Custom Global Flags:" }))));
     filters_box.append(&extra_global_args);
-    view_stack.add_titled(&filters_box, Some("filters"), (if is_arabic_system() { "الفلاتر والأوامر" } else { "Filters & Flags" }));
+    view_stack.add_titled(&wrap_in_scroll(&filters_box), Some("filters"), (if is_arabic_system() { "الفلاتر والأوامر" } else { "Filters & Flags" }));
 
     // --- أزرار المساعدة ---
     for (btn, dd, topic) in [

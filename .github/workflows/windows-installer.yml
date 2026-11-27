@@ -5,12 +5,6 @@ on:
   push:
     tags:
       - 'v*'
-  push:
-    paths:
-      - '.github/workflows/windows-installer.yml'
-      - 'installer.iss'
-      - 'build.rs'
-      - 'src/main.rs'
 
 permissions:
   contents: write
@@ -65,7 +59,7 @@ jobs:
       - name: Upload Updated Windows Setup to v0.3.9 Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: v0.3.9
           files: |
             FFmpeg-Studio-Windows-Setup.exe
             FFmpeg-Studio-Cert.cer

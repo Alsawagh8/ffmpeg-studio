@@ -57,8 +57,9 @@ jobs:
           & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint "FFmpeg-Studio-Windows-Setup.exe"
       - name: Upload Signed Setup & Certificate to Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: v0.3.8
+
           files: |
             FFmpeg-Studio-Windows-Setup.exe
             FFmpeg-Studio-Cert.cer

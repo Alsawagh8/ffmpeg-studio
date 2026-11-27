@@ -3,6 +3,9 @@ name: Build Standalone AppImage (With Bundled GTK4 & FFmpeg)
 on:
   workflow_dispatch:
   push:
+    tags:
+      - 'v*'
+  push:
     paths:
       - '.github/workflows/appimage.yml'
       - 'src/main.rs'
@@ -74,5 +77,5 @@ jobs:
       - name: Upload Standalone AppImage to v0.3.6 Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.3.6
+          tag_name: v0.3.8
           files: FFmpeg-Studio-x86_64.AppImage

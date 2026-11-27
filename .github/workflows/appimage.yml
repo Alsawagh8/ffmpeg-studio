@@ -24,15 +24,17 @@ jobs:
       - name: Build Binary
         run: cargo build --release
       - name: Bundle All Libraries, Schemas, Icons & FFmpeg into AppDir
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p AppDir/usr/bin AppDir/usr/lib AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps AppDir/usr/share/glib-2.0/schemas
+          mkdir -p AppDir/usr/bin AppDir/usr/lib AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps AppDir/usr/share/glib-2.0/schemas ff-tmp
           cp target/release/ffmpeg-gui AppDir/usr/bin/
           cp assets/ffmpeg-studio.svg AppDir/usr/share/icons/hicolor/scalable/apps/
 
-          # تحميل ودمج ffmpeg و ffprobe الثابتين داخل AppDir
-          curl -fSL "https://://johnvansickle.com" -o ffmpeg-static.tar.xz
-          mkdir -p ff-tmp && tar -xJf ffmpeg-static.tar.xz -C ff-tmp --strip-components=1
-          cp ff-tmp/ffmpeg ff-tmp/ffprobe AppDir/usr/bin/
+          # تحميل ودمج ffmpeg و ffprobe الثابتين عبر gh cli
+          gh release download latest -R BtbN/FFmpeg-Builds -p "ffmpeg-master-latest-linux64-gpl.tar.xz"
+          tar -xJf ffmpeg-master-latest-linux64-gpl.tar.xz -C ff-tmp --strip-components=1
+          cp ff-tmp/bin/ffmpeg ff-tmp/bin/ffprobe AppDir/usr/bin/
           chmod +x AppDir/usr/bin/ffmpeg AppDir/usr/bin/ffprobe
 
           # نسخ جميع مكتبات GTK4 و Libadwaita المشتركة داخل AppDir/usr/lib
@@ -66,7 +68,7 @@ jobs:
           cp AppDir/usr/share/applications/ffmpeg-studio.desktop AppDir/
           cp AppDir/usr/share/icons/hicolor/scalable/apps/ffmpeg-studio.svg AppDir/
 
-          GH_TOKEN="${{ github.token }}" gh release download continuous -R AppImage/appimagetool -p "appimagetool-x86_64.AppImage"
+          gh release download continuous -R AppImage/appimagetool -p "appimagetool-x86_64.AppImage"
           chmod +x appimagetool-x86_64.AppImage
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir FFmpeg-Studio-x86_64.AppImage
       - name: Upload Standalone AppImage to v0.3.5 Release

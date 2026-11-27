@@ -18,13 +18,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Vendor Cargo & Download Static FFmpeg
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p .cargo bundled-bin ff-tmp
           cargo vendor > .cargo/config.toml
-          curl -fSL "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz" -o ffmpeg-static.tar.xz
-          tar -xJf ffmpeg-static.tar.xz -C ff-tmp --strip-components=1
-          cp ff-tmp/ffmpeg ff-tmp/ffprobe bundled-bin/
-          rm -rf ff-tmp ffmpeg-static.tar.xz
+          gh release download latest -R BtbN/FFmpeg-Builds -p "ffmpeg-master-latest-linux64-gpl.tar.xz"
+          tar -xJf ffmpeg-master-latest-linux64-gpl.tar.xz -C ff-tmp --strip-components=1
+          cp ff-tmp/bin/ffmpeg ff-tmp/bin/ffprobe bundled-bin/
+          rm -rf ff-tmp ffmpeg-master-latest-linux64-gpl.tar.xz
       - name: Install Flatpak Builder
         run: |
           sudo apt-get update

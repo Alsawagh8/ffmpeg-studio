@@ -52,9 +52,9 @@ jobs:
           $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Alsawagh8, O=FFmpeg Studio" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
           Export-Certificate -Cert $cert -FilePath "FFmpeg-Studio-Cert.cer" | Out-Null
           $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1 -ExpandProperty FullName
-          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint /t http://digicert.com "FFmpeg-Studio-Windows\ffmpeg-gui.exe"
+          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint "FFmpeg-Studio-Windows\ffmpeg-gui.exe"
           iscc installer.iss
-          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint /t http://digicert.com "FFmpeg-Studio-Windows-Setup.exe"
+          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint "FFmpeg-Studio-Windows-Setup.exe"
       - name: Upload Signed Setup & Certificate to Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')

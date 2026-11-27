@@ -29,6 +29,11 @@
   <url type="bugtracker">https://github.com/issues</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.4.0" date="2026-11-28">
+      <description>
+        <p>Live 2x2 video preview frames, MediaInfo summary card, HandBrake-style subtitles tab, color depth selector (8/10/12-bit), and Open Folder button.</p>
+      </description>
+    </release>
     <release version="0.3.9" date="2026-11-27">
       <description>
         <p>Responsive scrollable layout for all screen resolutions, full AppStream metadata for software stores, and bundled FFmpeg/FFprobe.</p>

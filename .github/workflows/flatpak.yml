@@ -5,10 +5,6 @@ on:
   push:
     tags:
       - 'v*'
-  push:
-    paths:
-      - '.github/workflows/flatpak.yml'
-      - 'org.archlinux.FfmpegGui.yml'
 
 permissions:
   contents: write

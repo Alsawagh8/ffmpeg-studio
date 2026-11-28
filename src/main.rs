@@ -1036,11 +1036,12 @@ fn build_ui(app: &adw::Application) {
                             0 => args.extend(["-pix_fmt".into(), "yuv420p".into()]),
                             1 => args.extend(["-pix_fmt".into(), "yuv420p10le".into()]),
                             2 => args.extend(["-pix_fmt".into(), "yuv420p12le".into()]),
+                            3 => args.extend(["-pix_fmt".into(), if is_source_10bit(&input) { "yuv420p10le" } else { "yuv420p" }.into()]),
                             _ => {}
                         }
                     }
                 }
-                if !vc.starts_with("copy") && !ev.contains("-colorspace") && !ev.contains("-color_primaries") {
+                if is_hw && !ev.contains("-colorspace") && !ev.contains("-color_primaries") {
                     let ctags = probe_color_tags(&input);
                     let is_sdr_709 = ctags.iter().any(|x| x == "bt709") && !ctags.iter().any(|x| x.contains("2020") || x.contains("smpte2084") || x.contains("arib"));
                     args.extend(ctags);

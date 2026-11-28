@@ -917,7 +917,21 @@ fn build_ui(app: &adw::Application) {
                 }
 
                 let ev = ev_en.text().to_string();
-                if !vc.starts_with("copy") && !ev.contains("-pix_fmt") { match px_d.selected() { 0 => args.extend(["-pix_fmt".into(),"yuv420p".into()]), 1 => args.extend(["-pix_fmt".into(),"yuv420p10le".into()]), 2 => args.extend(["-pix_fmt".into(),"yuv420p12le".into()]), _ => {} } }
+                let is_hw = vc.ends_with("_nvenc") || vc.ends_with("_amf") || vc.ends_with("_vaapi") || vc.ends_with("_qsv") || vc.ends_with("_videotoolbox");
+                if !vc.starts_with("copy") {
+                    if is_hw {
+                        if px_d.selected() == 1 && !ev.contains("-profile") && (vc.contains("hevc") || vc.contains("265")) {
+                            args.extend(["-profile:v".into(), "main10".into()]);
+                        }
+                    } else if !ev.contains("-pix_fmt") {
+                        match px_d.selected() {
+                            0 => args.extend(["-pix_fmt".into(), "yuv420p".into()]),
+                            1 => args.extend(["-pix_fmt".into(), "yuv420p10le".into()]),
+                            2 => args.extend(["-pix_fmt".into(), "yuv420p12le".into()]),
+                            _ => {}
+                        }
+                    }
+                }
                 if !ev.trim().is_empty() {
                     args.extend(parse_shell_args(&ev));
                 }

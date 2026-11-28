@@ -31,6 +31,66 @@ fn is_arabic_system() -> bool {
 }
 
 
+fn is_known_hw_encoder(name: &str) -> bool {
+    name.ends_with("_nvenc")
+        || name.ends_with("_amf")
+        || name.ends_with("_qsv")
+        || name.ends_with("_vaapi")
+        || name.ends_with("_videotoolbox")
+}
+
+fn test_hw_encoder_works(name: &str) -> bool {
+    let mut cmd = new_std_cmd("ffmpeg");
+    cmd.args(["-hide_banner", "-loglevel", "error"]);
+    if cfg!(target_os = "linux") && name.ends_with("_vaapi") {
+        cmd.args([
+            "-vaapi_device", "/dev/dri/renderD128",
+            "-f", "lavfi", "-i", "color=black:s=256x256:d=0.1",
+            "-vf", "format=nv12,hwupload",
+            "-c:v", name, "-f", "null", "-",
+        ]);
+    } else {
+        cmd.args([
+            "-f", "lavfi", "-i", "color=black:s=256x256:d=0.1",
+            "-pix_fmt", "yuv420p",
+            "-c:v", name, "-f", "null", "-",
+        ]);
+    }
+    cmd.output().map(|o| o.status.success()).unwrap_or(false)
+}
+
+fn format_hw_encoder_label(name: &str) -> String {
+    let tag = if name.ends_with("_vaapi") {
+        " (AMD/Intel GPU)"
+    } else if name.ends_with("_amf") {
+        " (AMD GPU)"
+    } else if name.ends_with("_nvenc") {
+        " (NVIDIA GPU)"
+    } else if name.ends_with("_qsv") {
+        " (Intel QuickSync)"
+    } else if name.ends_with("_videotoolbox") {
+        " (Apple GPU)"
+    } else {
+        ""
+    };
+    format!("{}{}", name, tag)
+}
+
+fn is_source_10bit(path: &str) -> bool {
+    if let Ok(out) = new_std_cmd("ffprobe")
+        .args([
+            "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=pix_fmt",
+            "-of", "default=noprint_wrappers=1:nokey=1", path,
+        ])
+        .output()
+    {
+        let pf = String::from_utf8_lossy(&out.stdout).trim().to_lowercase();
+        return pf.contains("10le") || pf.contains("10be") || pf.contains("p010") || pf.contains("12le") || pf.contains("p012");
+    }
+    false
+}
+
 struct FfmpegCapabilities {
     video_encoders: Vec<String>,
     audio_encoders: Vec<String>,
@@ -59,7 +119,13 @@ impl FfmpegCapabilities {
                     && !trimmed.starts_with("V..... =")
                 {
                     if let Some(name) = trimmed[7..].split_whitespace().next() {
-                        video_encoders.push(name.to_string());
+                        if is_known_hw_encoder(name) {
+                            if test_hw_encoder_works(name) {
+                                video_encoders.push(format_hw_encoder_label(name));
+                            }
+                        } else {
+                            video_encoders.push(name.to_string());
+                        }
                     }
                 } else if trimmed.starts_with('A')
                     && trimmed.len() > 8
@@ -884,7 +950,7 @@ fn build_ui(app: &adw::Application) {
                 args.extend(parse_shell_args(&eg));
             }
 
-            let vc_pre = get_dropdown_text(&v_dd, "copy");
+            let vc_pre = get_dropdown_text(&v_dd, "copy").split_whitespace().next().unwrap_or("copy").to_string();
             if cfg!(target_os = "linux") && vc_pre.ends_with("_vaapi") && !eg.contains("-vaapi_device") {
                 args.extend(["-vaapi_device".to_string(), "/dev/dri/renderD128".to_string()]);
             }
@@ -893,7 +959,7 @@ fn build_ui(app: &adw::Application) {
 
             let sp = s_en.text().trim().to_string(); let sm = s_md.selected(); let sd = s_dl.text().trim().to_string();
             if sm == 2 && !sp.is_empty() { if !sd.is_empty() { args.extend(["-itsoffset".into(), sd]); } args.extend(["-i".into(), sp.clone()]); }
-            let mut vc = get_dropdown_text(&v_dd, "copy");
+            let mut vc = get_dropdown_text(&v_dd, "copy").split_whitespace().next().unwrap_or("copy").to_string();
             if vc == "copy" && (!vf_en.text().trim().is_empty() || (sm == 1 && !sp.is_empty())) { vc = "libx264".into(); }
             if vc.starts_with("none") {
                 args.push("-vn".to_string());
@@ -925,10 +991,11 @@ fn build_ui(app: &adw::Application) {
                 }
 
                 let ev = ev_en.text().to_string();
-                let is_hw = vc.ends_with("_nvenc") || vc.ends_with("_amf") || vc.ends_with("_vaapi") || vc.ends_with("_qsv") || vc.ends_with("_videotoolbox");
+                let is_hw = is_known_hw_encoder(&vc);
+                let want_10bit = px_d.selected() == 1 || (px_d.selected() == 3 && is_source_10bit(&input));
                 if !vc.starts_with("copy") {
                     if is_hw {
-                        if px_d.selected() == 1 && !ev.contains("-profile") && (vc.contains("hevc") || vc.contains("265")) {
+                        if want_10bit && !ev.contains("-profile") && (vc.contains("hevc") || vc.contains("265") || vc.contains("av1")) {
                             args.extend(["-profile:v".into(), "main10".into()]);
                         }
                     } else if !ev.contains("-pix_fmt") {
@@ -968,7 +1035,7 @@ fn build_ui(app: &adw::Application) {
                 vfs.push(if st.is_empty() { format!("subtitles='{}'", escape_sub(&sp)) } else { format!("subtitles='{}':force_style='{}'", escape_sub(&sp), st.join(",")) });
             }
             if cfg!(target_os = "linux") && vc.ends_with("_vaapi") && !ev_en.text().contains("hwupload") {
-                let va_fmt = if px_d.selected() == 1 { "format=p010,hwupload" } else { "format=nv12,hwupload" };
+                let va_fmt = if px_d.selected() == 1 || (px_d.selected() == 3 && is_source_10bit(&input)) { "format=p010,hwupload" } else { "format=nv12,hwupload" };
                 vfs.push(va_fmt.to_string());
             }
             if !vfs.is_empty() { args.extend(["-vf".into(), vfs.join(",")]); }
@@ -1024,7 +1091,7 @@ fn build_ui(app: &adw::Application) {
     let p_lbl_preset = preset_label.clone();
     let rp_v = refresh_preview.clone();
     v_dd_preset.connect_selected_notify(move |dd| {
-        let codec = get_dropdown_text(dd, "copy");
+        let codec = get_dropdown_text(dd, "copy").split_whitespace().next().unwrap_or("copy").to_string();
         let mode = detect_preset_mode(&codec);
         let opts = preset_options_for_mode(&mode);
         p_dd_preset.set_model(Some(&StringList::new(&opts)));

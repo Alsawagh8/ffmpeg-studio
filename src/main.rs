@@ -47,7 +47,7 @@ impl FfmpegCapabilities {
         let mut video_filters = Vec::new();
         let mut audio_filters = Vec::new();
 
-        if let Ok(output) = Command::new("ffmpeg")
+        if let Ok(output) = new_std_cmd("ffmpeg")
             .args(["-hide_banner", "-encoders"])
             .output()
         {
@@ -72,7 +72,7 @@ impl FfmpegCapabilities {
             }
         }
 
-        if let Ok(output) = Command::new("ffmpeg")
+        if let Ok(output) = new_std_cmd("ffmpeg")
             .args(["-hide_banner", "-muxers"])
             .output()
         {
@@ -91,7 +91,7 @@ impl FfmpegCapabilities {
         }
 
         // استخراج الفلاتر بدقة عبر البحث عن رمز الاتجاه -> في العمود الثالث
-        if let Ok(output) = Command::new("ffmpeg")
+        if let Ok(output) = new_std_cmd("ffmpeg")
             .args(["-hide_banner", "-filters"])
             .output()
         {
@@ -246,11 +246,22 @@ fn format_cmd_preview(args: &[String]) -> String {
 }
 
 fn escape_sub(p: &str) -> String { p.replace('\\', "/").replace(':', "\\:").replace('\'', "\\\'") }
-fn open_dir(p: &str) { let d = Path::new(p).parent().filter(|x| !x.as_os_str().is_empty()).unwrap_or(Path::new(".")); #[cfg(target_os = "windows")] let _ = Command::new("explorer").arg(d).spawn(); #[cfg(target_os = "linux")] let _ = Command::new("xdg-open").arg(d).spawn(); }
+
+fn new_std_cmd<S: AsRef<std::ffi::OsStr>>(program: S) -> std::process::Command {
+    let mut cmd = std::process::new_std_cmd(program);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    cmd
+}
+
+fn open_dir(p: &str) { let d = Path::new(p).parent().filter(|x| !x.as_os_str().is_empty()).unwrap_or(Path::new(".")); #[cfg(target_os = "windows")] let _ = new_std_cmd("explorer").arg(d).spawn(); #[cfg(target_os = "linux")] let _ = new_std_cmd("xdg-open").arg(d).spawn(); }
 
 fn extract_video_thumbnails(video_path: &str) -> Vec<PathBuf> {
     let mut out_imgs = Vec::new();
-    let dur_out = Command::new("ffprobe")
+    let dur_out = new_std_cmd("ffprobe")
         .args(["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path])
         .output();
     let dur: f64 = dur_out.ok()
@@ -263,7 +274,7 @@ fn extract_video_thumbnails(video_path: &str) -> Vec<PathBuf> {
         let ts = format!("{:.2}", dur * pct);
         let img_path = tmp_dir.join(format!("thumb_{}.jpg", idx));
         let _ = std::fs::remove_file(&img_path);
-        let st = Command::new("ffmpeg")
+        let st = new_std_cmd("ffmpeg")
             .args(["-y", "-ss", &ts, "-i", video_path, "-vframes", "1", "-vf", "scale=480:-2", "-q:v", "4", img_path.to_str().unwrap_or("")])
             .status();
         if st.map(|x| x.success()).unwrap_or(false) && img_path.exists() {
@@ -275,7 +286,7 @@ fn extract_video_thumbnails(video_path: &str) -> Vec<PathBuf> {
 
 fn probe_sub_tracks(path: &str, is_ar: bool) -> Vec<String> {
     let mut items = if is_ar { vec!["افتراضي (FFmpeg القياسي)".into(), "كل التراكات (نسخ جميع الترجمات)".into(), "مسح الكل (-sn)".into()] } else { vec!["Default (Standard FFmpeg)".into(), "All Tracks (Copy all)".into(), "Remove All (-sn)".into()] };
-    if let Ok(out) = Command::new("ffprobe").args(["-v","error","-select_streams","s","-show_entries","stream=codec_name:stream_tags=language,title","-of","csv=p=0:s=|",path]).output() {
+    if let Ok(out) = new_std_cmd("ffprobe").args(["-v","error","-select_streams","s","-show_entries","stream=codec_name:stream_tags=language,title","-of","csv=p=0:s=|",path]).output() {
         for (i, l) in String::from_utf8_lossy(&out.stdout).lines().enumerate() { let p: Vec<&str> = l.split('|').collect(); items.push(format!("{} {}: {} {} [{}]", if is_ar {"تراك"} else {"Track"}, i, p.get(1).unwrap_or(&""), p.get(2).unwrap_or(&""), p.first().unwrap_or(&"sub"))); }
     }
     items
@@ -296,7 +307,7 @@ fn get_ffmpeg_help(topic: &str, name: &str) -> String {
         return (if is_arabic_system() { "لا توجد خيارات متقدمة إضافية لهذا الاختيار." } else { "No additional advanced options for this selection." }).to_string();
     }
     let query = format!("{}={}", topic, name);
-    if let Ok(output) = Command::new("ffmpeg")
+    if let Ok(output) = new_std_cmd("ffmpeg")
         .args(["-hide_banner", "-h", &query])
         .output()
     {
@@ -319,7 +330,7 @@ fn get_media_duration(path: &str) -> f64 {
         "default=noprint_wrappers=1:nokey=1",
         path,
     ];
-    if let Ok(output) = Command::new("ffprobe").args(args).output() {
+    if let Ok(output) = new_std_cmd("ffprobe").args(args).output() {
         let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
         return s.parse::<f64>().unwrap_or(0.0);
     }
@@ -337,7 +348,7 @@ fn get_media_info(path: &str) -> String {
         "default=noprint_wrappers=1",
         path,
     ];
-    if let Ok(output) = Command::new("ffprobe").args(args).output() {
+    if let Ok(output) = new_std_cmd("ffprobe").args(args).output() {
         return String::from_utf8_lossy(&output.stdout).to_string();
     }
     (if is_arabic_system() { "تعذر قراءة معلومات الملف" } else { "Unable to read media info" }).to_string()
@@ -502,7 +513,7 @@ fn build_ui(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("FFmpeg Studio v0.4.0")
+        .title("FFmpeg Studio v0.4.2")
         .default_width(780)
         .default_height(600)
         .width_request(360)
@@ -1039,7 +1050,7 @@ fn build_ui(app: &adw::Application) {
             file_lbl.set_text(&format!("{}: {}", if is_ar { "المصدر" } else { "Source" }, p_str));
             let mut out_lines = Vec::new();
             if let Ok(meta) = std::fs::metadata(&p_str) { out_lines.push(format!("• 📁 <b>Size:</b> {:.1} MB", meta.len() as f64 / 1048576.0)); }
-            if let Ok(o) = Command::new("ffprobe").args(["-v","error","-show_entries","format=duration:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels,bit_rate:stream_tags=language,title","-of","default=noprint_wrappers=1",&p_str]).output() {
+            if let Ok(o) = new_std_cmd("ffprobe").args(["-v","error","-show_entries","format=duration:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels,bit_rate:stream_tags=language,title","-of","default=noprint_wrappers=1",&p_str]).output() {
                 let mut streams = Vec::new(); let mut cur = std::collections::HashMap::new(); let mut in_st = false;
                 for ln in String::from_utf8_lossy(&o.stdout).lines() {
                     if let Some((k, v)) = ln.split_once('=') {
@@ -1208,7 +1219,7 @@ fn build_ui(app: &adw::Application) {
         let run_thread = run_r.clone();
 
         std::thread::spawn(move || {
-            let mut child = match Command::new("ffmpeg")
+            let mut child = match new_std_cmd("ffmpeg")
                 .args(&exec_args)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())

@@ -1,6 +1,6 @@
 [Setup]
 AppName=FFmpeg Studio
-AppVersion=0.4.0
+AppVersion=0.4.2
 DefaultDirName={localappdata}\Programs\FFmpeg Studio
 DefaultGroupName=FFmpeg Studio
 PrivilegesRequired=lowest

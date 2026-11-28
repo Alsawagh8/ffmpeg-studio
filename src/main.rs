@@ -884,6 +884,10 @@ fn build_ui(app: &adw::Application) {
                 args.extend(parse_shell_args(&eg));
             }
 
+            let vc_pre = get_dropdown_text(&v_dd, "copy");
+            if cfg!(target_os = "linux") && vc_pre.ends_with("_vaapi") && !eg.contains("-vaapi_device") {
+                args.extend(["-vaapi_device".to_string(), "/dev/dri/renderD128".to_string()]);
+            }
             args.push("-i".to_string());
             args.push(input.clone());
 
@@ -900,7 +904,11 @@ fn build_ui(app: &adw::Application) {
                 for (flag, entry) in [("-crf", &crf_en), ("-b:v", &vb_en), ("-r", &fps_en)] {
                     let val = entry.text().trim().to_string();
                     if !val.is_empty() {
-                        args.extend([flag.to_string(), val]);
+                        if flag == "-crf" && vc.ends_with("_amf") {
+                            args.extend(["-rc".to_string(), "cqp".to_string(), "-qp_i".to_string(), val.clone(), "-qp_p".to_string(), val]);
+                        } else {
+                            args.extend([flag.to_string(), val]);
+                        }
                     }
                 }
 
@@ -958,6 +966,10 @@ fn build_ui(app: &adw::Application) {
                 if s_cl.selected() > 0 { st.push(format!("PrimaryColour={}", ["","&H00FFFFFF","&H0000FFFF","&H00FFFF00","&H0000FF00"][s_cl.selected() as usize])); }
                 if s_bg.selected() == 1 { st.push("BorderStyle=1,Outline=1.5,Shadow=1".into()); } else if s_bg.selected() == 2 { st.push("BorderStyle=3,BackColour=&H80000000".into()); } else if s_bg.selected() == 3 { st.push("BorderStyle=1,Outline=2.5,Shadow=0".into()); }
                 vfs.push(if st.is_empty() { format!("subtitles='{}'", escape_sub(&sp)) } else { format!("subtitles='{}':force_style='{}'", escape_sub(&sp), st.join(",")) });
+            }
+            if cfg!(target_os = "linux") && vc.ends_with("_vaapi") && !ev_en.text().contains("hwupload") {
+                let va_fmt = if px_d.selected() == 1 { "format=p010,hwupload" } else { "format=nv12,hwupload" };
+                vfs.push(va_fmt.to_string());
             }
             if !vfs.is_empty() { args.extend(["-vf".into(), vfs.join(",")]); }
             if !af_en.text().trim().is_empty() { args.extend(["-af".into(), af_en.text().trim().to_string()]); }

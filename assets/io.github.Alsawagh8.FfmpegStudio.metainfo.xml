@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.Alsawagh8.FfmpegStudio</id>
+  <name>FFmpeg Studio</name>
+  <name xml:lang="ar">استوديو FFmpeg</name>
+  <summary>Modern, fast native GUI for FFmpeg built with Rust and GTK4</summary>
+  <summary xml:lang="ar">واجهة رسومية حديثة وسريعة لأداة FFmpeg مبنية بلغة Rust و GTK4</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="io.github.Alsawagh8">
+    <name>Alsawagh8</name>
+  </developer>
+  <url type="homepage">https://github.com</url>
+  <url type="bugtracker">https://github.com/issues</url>
+  <launchable type="desktop-id">io.github.Alsawagh8.FfmpegStudio.desktop</launchable>
+  <description>
+    <p>
+      FFmpeg Studio is a lightweight, native desktop interface for FFmpeg written in Rust with GTK4 and Libadwaita. It provides instant media inspection, automatic GPU encoder detection (NVENC, AMF, QSV, VA-API), MKV/MP4 subtitle and font muxing, and built-in zscale upscaling presets while keeping the full FFmpeg command editable.
+    </p>
+  </description>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main media inspection and 2x2 preview grid</caption>
+      <image>https://githubusercontent.com</image>
+    </screenshot>
+    <screenshot>
+      <caption>Video codec and GPU acceleration settings</caption>
+      <image>https://githubusercontent.com</image>
+    </screenshot>
+    <screenshot>
+      <caption>Subtitle track selection and burn-in options</caption>
+      <image>https://githubusercontent.com</image>
+    </screenshot>
+    <screenshot>
+      <caption>Built-in zscale upscaling and color presets</caption>
+      <image>https://githubusercontent.com</image>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.4.3" date="2026-11-28">
+      <description>
+        <p>Added zscale 4K/2K/1080p presets, automatic GPU encoder detection, 10-bit source depth preservation, internal subtitle burn-in support, and BT.709 color metadata preservation.</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1" />
+</component>

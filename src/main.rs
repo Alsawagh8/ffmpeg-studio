@@ -14,7 +14,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
-const APP_ID: &str = "org.archlinux.FfmpegGui";
+const APP_ID: &str = "io.github.Alsawagh8.FfmpegStudio";
 
 fn is_arabic_system() -> bool {
     for var in ["LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"] {

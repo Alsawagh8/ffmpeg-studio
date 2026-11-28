@@ -19,7 +19,8 @@ modules:
       - install -Dm755 bin/ffprobe /app/bin/ffprobe
     sources:
       - type: archive
-        url:
+        url: https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+        sha256: a2d0cb34b2cf45d738927246d4cf9d8bfddeaac66964960142b5c1fbef6e0f70
 
   - name: ffmpeg-studio
     buildsystem: simple
@@ -36,5 +37,5 @@ modules:
       - install -Dm644 assets/io.github.Alsawagh8.FfmpegStudio.metainfo.xml /app/share/metainfo/io.github.Alsawagh8.FfmpegStudio.metainfo.xml
     sources:
       - type: dir
-        path: ./archive/refs/tags/v0.4.3.tar.gz
+        path: .
       - flathub/cargo-sources.json

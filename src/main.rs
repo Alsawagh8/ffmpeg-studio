@@ -610,7 +610,7 @@ fn build_ui(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("FFmpeg Studio v0.4.2")
+        .title("FFmpeg Studio v0.4.4")
         .default_width(780)
         .default_height(600)
         .width_request(360)
@@ -948,7 +948,28 @@ fn build_ui(app: &adw::Application) {
     buttons_row.append(&open_dir_btn);
 
     bottom_box.append(&Label::new(Some((if is_arabic_system() { "الأمر النهائي (ينفذ ما هو مكتوب هنا):" } else { "Final Command (executes exact text below):" }))));
-    bottom_box.append(&cmd_entry);
+    let cmd_row = Box::new(Orientation::Horizontal, 6);
+    cmd_entry.set_hexpand(true);
+    let copy_cmd_btn = Button::with_label(if is_arabic_system() { "📋 نسخ" } else { "📋 Copy" });
+    copy_cmd_btn.set_tooltip_text(Some(if is_arabic_system() { "نسخ الأمر النهائي إلى الحافظة" } else { "Copy final FFmpeg command to clipboard" }));
+    {
+        let ce = cmd_entry.clone();
+        let btn = copy_cmd_btn.clone();
+        copy_cmd_btn.connect_clicked(move |_| {
+            let text = ce.text();
+            if let Some(display) = gdk::Display::default() {
+                display.clipboard().set_text(text.as_str());
+                btn.set_label(if is_arabic_system() { "✅ تم النسخ" } else { "✅ Copied" });
+                let b = btn.clone();
+                glib::timeout_add_local_once(Duration::from_secs(2), move || {
+                    b.set_label(if is_arabic_system() { "📋 نسخ" } else { "📋 Copy" });
+                });
+            }
+        });
+    }
+    cmd_row.append(&cmd_entry);
+    cmd_row.append(&copy_cmd_btn);
+    bottom_box.append(&cmd_row);
     bottom_box.append(&progress_bar);
     bottom_box.append(&buttons_row);
     bottom_box.append(&status_label);

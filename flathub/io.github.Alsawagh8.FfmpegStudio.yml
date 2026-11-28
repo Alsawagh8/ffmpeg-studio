@@ -19,8 +19,8 @@ modules:
       - install -Dm755 bin/ffprobe /app/bin/ffprobe
     sources:
       - type: archive
-        url: 
-        sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        url: https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+        sha256: a2d0cb34b2cf45d738927246d4cf9d8bfddeaac66964960142b5c1fbef6e0f70
 
   - name: ffmpeg-studio
     buildsystem: simple
@@ -37,6 +37,6 @@ modules:
       - install -Dm644 assets/io.github.Alsawagh8.FfmpegStudio.metainfo.xml /app/share/metainfo/io.github.Alsawagh8.FfmpegStudio.metainfo.xml
     sources:
       - type: archive
-        url: https://github.com/archive/refs/tags/v0.4.3.tar.gz
-        sha256: 0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5
+        url: https://github.com/Alsawagh8/ffmpeg-studio/archive/refs/tags/v0.4.3.tar.gz
+        sha256: 250889c9a36baa265890f9b4d5097ae979f0c65aa3ccbd623edfc1869f587d47
       - cargo-sources.json

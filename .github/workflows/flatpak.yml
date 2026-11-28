@@ -1,44 +1,36 @@
-name: Build Flatpak Package
+name: Build and Release Flatpak
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build-flatpak:
-    name: Build Linux Flatpak
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-49
+      options: --privileged
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Vendor Cargo & Download Static FFmpeg
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p .cargo bundled-bin ff-tmp
-          cargo vendor > .cargo/config.toml
-          gh release download latest -R BtbN/FFmpeg-Builds -p "ffmpeg-master-latest-linux64-gpl.tar.xz"
-          tar -xJf ffmpeg-master-latest-linux64-gpl.tar.xz -C ff-tmp --strip-components=1
-          cp ff-tmp/bin/ffmpeg ff-tmp/bin/ffprobe bundled-bin/
-          rm -rf ff-tmp ffmpeg-master-latest-linux64-gpl.tar.xz
-      - name: Install Flatpak Builder
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
-          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y flathub org.gnome.Platform//49 org.gnome.Sdk//49 org.freedesktop.Sdk.Extension.rust-stable//25.08
-      - name: Build & Bundle Flatpak
-        run: |
-          flatpak-builder --user --force-clean --repo=repo build-dir io.github.Alsawagh8.FfmpegStudio.yml
-          flatpak build-bundle repo FFmpeg-Studio-x86_64.flatpak io.github.Alsawagh8.FfmpegStudio
-      - name: Upload Flatpak to v0.3.6 Release
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust SDK Extension
+        run: flatpak install -y --noninteractive flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: io.github.Alsawagh8.FfmpegStudio.flatpak
+          manifest-path: io.github.Alsawagh8.FfmpegStudio.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Upload Flatpak to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          body_path: RELEASE_NOTES.md
-          files: FFmpeg-Studio-x86_64.flatpak
+          files: io.github.Alsawagh8.FfmpegStudio.flatpak

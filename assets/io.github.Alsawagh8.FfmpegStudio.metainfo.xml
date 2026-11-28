@@ -37,6 +37,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.4.4" date="2026-11-28">
+      <description>
+        <p>Added one-click FFmpeg command copy button, unified official Flatpak App ID, and bundled static FFmpeg/FFprobe binaries for reliable Flatpak media inspection and thumbnail previews.</p>
+      </description>
+    </release>
     <release version="0.4.3" date="2026-11-28">
       <description>
         <p>Added zscale 4K/2K/1080p presets, automatic GPU encoder detection, 10-bit source depth preservation, internal subtitle burn-in support, and BT.709 color metadata preservation.</p>

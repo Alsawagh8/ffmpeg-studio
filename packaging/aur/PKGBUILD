@@ -1,6 +1,6 @@
 # Maintainer: Alsawagh8 <https://github.com>
 pkgname=ffmpeg-studio
-pkgver=0.4.2
+pkgver=0.4.4
 pkgrel=1
 pkgdesc="Modern, fast native GUI for FFmpeg built with Rust, GTK4 & Libadwaita"
 arch=('x86_64')

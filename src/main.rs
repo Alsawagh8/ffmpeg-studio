@@ -997,7 +997,9 @@ fn build_ui(app: &adw::Application) {
                 let want_10bit = px_d.selected() == 1 || (px_d.selected() == 3 && is_source_10bit(&input));
                 if !vc.starts_with("copy") {
                     if is_hw {
-                        if want_10bit && !ev.contains("-profile") && (vc.contains("hevc") || vc.contains("265")) {
+                        if vc == "av1_amf" && !ev.contains("-pix_fmt") {
+                            args.extend(["-pix_fmt".into(), "nv12".into()]);
+                        } else if want_10bit && !ev.contains("-profile") && (vc.contains("hevc") || vc.contains("265")) {
                             args.extend(["-profile:v".into(), "main10".into()]);
                         }
                     } else if !ev.contains("-pix_fmt") {
@@ -1018,11 +1020,19 @@ fn build_ui(app: &adw::Application) {
             if ac.starts_with("none") {
                 args.push("-an".to_string());
             } else {
+                let is_opus = ac == "opus" || ac == "libopus";
                 args.extend(["-c:a".to_string(), ac]);
                 for (flag, entry) in [("-b:a", &ab_en), ("-ar", &ar_en), ("-ac", &ac_en)] {
                     let val = entry.text().trim().to_string();
                     if !val.is_empty() {
-                        args.extend([flag.to_string(), val]);
+                        args.extend([flag.to_string(), val.clone()]);
+                        if flag == "-ac" && is_opus {
+                            if let Ok(ch) = val.parse::<u32>() {
+                                if ch > 2 {
+                                    args.extend(["-mapping_family".to_string(), "1".to_string()]);
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -657,6 +657,7 @@ fn build_ui(app: &adw::Application) {
     audio_box.append(&channels_entry);
     view_stack.add_titled(&wrap_in_scroll(&audio_box), Some("audio"), (if is_arabic_system() { "الصوت" } else { "Audio" }));
 
+    let late_refresh: Rc<RefCell<Option<Rc<dyn Fn()>>>> = Rc::new(RefCell::new(None));
     let sub_box = make_tab_box();
     let hb_bar = Box::builder().orientation(Orientation::Horizontal).spacing(6).build();
     let hb_all_btn = Button::with_label(if is_ar { "✅ كل التراكات" } else { "✅ All Tracks" });
@@ -687,7 +688,7 @@ fn build_ui(app: &adw::Application) {
     sub_box.append(&tracks_list_box); sub_box.append(&sub_row); sub_box.append(&sub_en); sub_box.append(&sub_mode); sub_box.append(&sub_size); sub_box.append(&sub_col); sub_box.append(&sub_bg); sub_box.append(&sub_delay); sub_box.append(&sub_lang);
     view_stack.add_titled(&wrap_in_scroll(&sub_box), Some("subtitles"), if is_ar { "الترجمة" } else { "Subtitles" });
     let scan_tracks_fn: Rc<dyn Fn()> = {
-        let (tlb, tcs, sel_f) = (tracks_list_box.clone(), track_checks.clone(), selected_file.clone());
+        let (tlb, tcs, sel_f, late_refresh) = (tracks_list_box.clone(), track_checks.clone(), selected_file.clone(), late_refresh.clone());
         Rc::new(move || {
             while let Some(child) = tlb.first_child() { tlb.remove(&child); }
             tcs.borrow_mut().clear();
@@ -702,6 +703,10 @@ fn build_ui(app: &adw::Application) {
                     for tr in real_tracks {
                         let cb = gtk::CheckButton::with_label(tr);
                         cb.set_active(false);
+                        let lr_cb = late_refresh.clone();
+                        cb.connect_toggled(move |_| {
+                            if let Some(ref f) = *lr_cb.borrow() { f(); }
+                        });
                         tlb.append(&cb);
                         tcs.borrow_mut().push(cb);
                     }
@@ -715,13 +720,15 @@ fn build_ui(app: &adw::Application) {
     let sc_on_btn = scan_tracks_fn.clone();
     hb_scan_btn.connect_clicked(move |_| { sc_on_btn(); });
 
-    let tcs_all = track_checks.clone();
+    let (tcs_all, lr_all) = (track_checks.clone(), late_refresh.clone());
     hb_all_btn.connect_clicked(move |_| {
         for cb in tcs_all.borrow().iter() { cb.set_active(true); }
+        if let Some(ref f) = *lr_all.borrow() { f(); }
     });
-    let tcs_none = track_checks.clone();
+    let (tcs_none, lr_none) = (track_checks.clone(), late_refresh.clone());
     hb_none_btn.connect_clicked(move |_| {
         for cb in tcs_none.borrow().iter() { cb.set_active(false); }
+        if let Some(ref f) = *lr_none.borrow() { f(); }
     });
 
     // --- التبويب 4: الفلاتر ---
@@ -979,6 +986,8 @@ fn build_ui(app: &adw::Application) {
             }
         }
     };
+
+    *late_refresh.borrow_mut() = Some(Rc::new(refresh_preview.clone()));
 
     // --- تغيير قائمة Preset تلقائياً عند تغيير ترميز الفيديو ---
     let v_dd_preset = video_dropdown.clone();

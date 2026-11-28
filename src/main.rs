@@ -1205,10 +1205,27 @@ fn build_ui(app: &adw::Application) {
                             no_img.set_vexpand(true);
                             pbox_c.append(&no_img);
                         } else {
-                            let grid = gtk::Grid::builder().row_spacing(6).column_spacing(6).row_homogeneous(true).column_homogeneous(true).vexpand(true).hexpand(true).margin_top(8).margin_bottom(8).margin_start(8).margin_end(8).build();
+                            let grid = gtk::Grid::builder()
+                                .row_spacing(4)
+                                .column_spacing(4)
+                                .row_homogeneous(true)
+                                .column_homogeneous(true)
+                                .halign(gtk::Align::Center)
+                                .valign(gtk::Align::Center)
+                                .vexpand(true)
+                                .hexpand(true)
+                                .margin_top(6)
+                                .margin_bottom(6)
+                                .margin_start(6)
+                                .margin_end(6)
+                                .build();
                             for (i, img_p) in imgs.iter().enumerate() {
                                 let pic = gtk::Picture::for_file(&gio::File::for_path(img_p));
-                                pic.set_can_shrink(true); pic.set_hexpand(true); pic.set_vexpand(true);
+                                pic.set_content_fit(gtk::ContentFit::Cover);
+                                pic.set_can_shrink(true);
+                                pic.set_size_request(240, 135);
+                                pic.set_hexpand(true);
+                                pic.set_vexpand(true);
                                 grid.attach(&pic, (i % 2) as i32, (i / 2) as i32, 1, 1);
                             }
                             pbox_c.append(&grid);

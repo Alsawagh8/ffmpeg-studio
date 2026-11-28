@@ -6,7 +6,7 @@
   <summary>Fast, modern graphical interface for FFmpeg</summary>
   <summary xml:lang="ar">واجهة رسومية حديثة وسريعة لأداة FFmpeg</summary>
   <metadata_license>MIT</metadata_license>
-  <project_license>MIT</project_license>
+  <project_license>GPL-3.0-or-later</project_license>
   <developer id="io.github.alsawagh8">
     <name>Alsawagh8</name>
   </developer>

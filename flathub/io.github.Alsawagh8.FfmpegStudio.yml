@@ -1,0 +1,42 @@
+app-id: io.github.Alsawagh8.FfmpegStudio
+runtime: org.gnome.Platform
+runtime-version: '49'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: ffmpeg-gui
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --filesystem=home
+modules:
+  - name: ffmpeg-static
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 bin/ffmpeg /app/bin/ffmpeg
+      - install -Dm755 bin/ffprobe /app/bin/ffprobe
+    sources:
+      - type: archive
+        url: 
+        sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+  - name: ffmpeg-studio
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/ffmpeg-studio/cargo
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo --offline build --release --verbose
+      - install -Dm755 target/release/ffmpeg-gui /app/bin/ffmpeg-gui
+      - install -Dm644 assets/ffmpeg-studio.svg /app/share/icons/hicolor/scalable/apps/io.github.Alsawagh8.FfmpegStudio.svg
+      - install -Dm644 assets/io.github.Alsawagh8.FfmpegStudio.desktop /app/share/applications/io.github.Alsawagh8.FfmpegStudio.desktop
+      - install -Dm644 assets/io.github.Alsawagh8.FfmpegStudio.metainfo.xml /app/share/metainfo/io.github.Alsawagh8.FfmpegStudio.metainfo.xml
+    sources:
+      - type: archive
+        url: https://github.com
+        sha256: e01128667ef9b35e569465fbbe89a7527038515b5170c726e23df3bddf728d9b
+      - cargo-sources.json

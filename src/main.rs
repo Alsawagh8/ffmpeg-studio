@@ -960,7 +960,9 @@ fn build_ui(app: &adw::Application) {
             let sp = s_en.text().trim().to_string(); let sm = s_md.selected(); let sd = s_dl.text().trim().to_string();
             if sm == 2 && !sp.is_empty() { if !sd.is_empty() { args.extend(["-itsoffset".into(), sd]); } args.extend(["-i".into(), sp.clone()]); }
             let mut vc = get_dropdown_text(&v_dd, "copy").split_whitespace().next().unwrap_or("copy").to_string();
-            if vc == "copy" && (!vf_en.text().trim().is_empty() || (sm == 1 && !sp.is_empty())) { vc = "libx264".into(); }
+            let first_active_sub: Option<usize> = tcs_d.borrow().iter().enumerate().find(|(_, c)| c.is_active()).map(|(i, _)| i);
+            let burn_internal = sm == 1 && sp.is_empty() && first_active_sub.is_some();
+            if vc == "copy" && (!vf_en.text().trim().is_empty() || (sm == 1 && (!sp.is_empty() || burn_internal))) { vc = "libx264".into(); }
             if vc.starts_with("none") {
                 args.push("-vn".to_string());
             } else {
@@ -995,7 +997,7 @@ fn build_ui(app: &adw::Application) {
                 let want_10bit = px_d.selected() == 1 || (px_d.selected() == 3 && is_source_10bit(&input));
                 if !vc.starts_with("copy") {
                     if is_hw {
-                        if want_10bit && !ev.contains("-profile") && (vc.contains("hevc") || vc.contains("265") || vc.contains("av1")) {
+                        if want_10bit && !ev.contains("-profile") && (vc.contains("hevc") || vc.contains("265")) {
                             args.extend(["-profile:v".into(), "main10".into()]);
                         }
                     } else if !ev.contains("-pix_fmt") {
@@ -1027,12 +1029,17 @@ fn build_ui(app: &adw::Application) {
 
             let mut vfs = Vec::new();
             if !vf_en.text().trim().is_empty() { vfs.push(vf_en.text().trim().to_string()); }
-            if sm == 1 && !sp.is_empty() {
+            if sm == 1 && (!sp.is_empty() || burn_internal) {
                 let mut st = Vec::new();
                 if s_sz.selected() > 0 { st.push(format!("FontSize={}", ["","16","20","24","28","34"][s_sz.selected() as usize])); }
                 if s_cl.selected() > 0 { st.push(format!("PrimaryColour={}", ["","&H00FFFFFF","&H0000FFFF","&H00FFFF00","&H0000FF00"][s_cl.selected() as usize])); }
                 if s_bg.selected() == 1 { st.push("BorderStyle=1,Outline=1.5,Shadow=1".into()); } else if s_bg.selected() == 2 { st.push("BorderStyle=3,BackColour=&H80000000".into()); } else if s_bg.selected() == 3 { st.push("BorderStyle=1,Outline=2.5,Shadow=0".into()); }
-                vfs.push(if st.is_empty() { format!("subtitles='{}'", escape_sub(&sp)) } else { format!("subtitles='{}':force_style='{}'", escape_sub(&sp), st.join(",")) });
+                let sub_src = if !sp.is_empty() {
+                    format!("subtitles='{}'", escape_sub(&sp))
+                } else {
+                    format!("subtitles='{}':si={}", escape_sub(&input), first_active_sub.unwrap_or(0))
+                };
+                vfs.push(if st.is_empty() { sub_src } else { format!("{}:force_style='{}'", sub_src, st.join(",")) });
             }
             if cfg!(target_os = "linux") && vc.ends_with("_vaapi") && !ev_en.text().contains("hwupload") {
                 let va_fmt = if px_d.selected() == 1 || (px_d.selected() == 3 && is_source_10bit(&input)) { "format=p010,hwupload" } else { "format=nv12,hwupload" };
@@ -1044,7 +1051,7 @@ fn build_ui(app: &adw::Application) {
             if !["mp3","m4a","flac","wav","opus","ogg"].contains(&ext_c.as_str()) {
                 let cbs = tcs_d.borrow();
                 let active_idxs: Vec<usize> = cbs.iter().enumerate().filter(|(_, c)| c.is_active()).map(|(i, _)| i).collect();
-                if !cbs.is_empty() && !active_idxs.is_empty() {
+                if !cbs.is_empty() && !active_idxs.is_empty() && !burn_internal {
                     args.extend(["-map".into(), "0:v:0".into(), "-map".into(), "0:a?".into()]);
                     for idx in &active_idxs {
                         args.extend(["-map".into(), format!("0:s:{}", idx)]);

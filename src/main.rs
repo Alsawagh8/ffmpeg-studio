@@ -957,9 +957,12 @@ fn build_ui(app: &adw::Application) {
                         args.extend(["-map".into(), format!("0:s:{}", idx)]);
                     }
                     if sm == 2 && !sp.is_empty() { args.extend(["-map".into(), "1:0".into()]); }
+                    if ext_c == "mkv" { args.extend(["-map".into(), "0:t?".into()]); }
                     args.extend(["-c:s".into(), if is_mp4 { "mov_text" } else { "copy" }.into()]);
                 } else if sm == 2 && !sp.is_empty() {
-                    args.extend(["-map".into(), "0:v:0".into(), "-map".into(), "0:a?".into(), "-map".into(), "1:0".into(), "-c:s".into(), if is_mp4 { "mov_text" } else { "copy" }.into()]);
+                    args.extend(["-map".into(), "0:v:0".into(), "-map".into(), "0:a?".into(), "-map".into(), "1:0".into()]);
+                    if ext_c == "mkv" { args.extend(["-map".into(), "0:t?".into()]); }
+                    args.extend(["-c:s".into(), if is_mp4 { "mov_text" } else { "copy" }.into()]);
                 }
                 let lg = s_lg.text().trim().to_string(); if sm == 2 && !sp.is_empty() && !lg.is_empty() { args.extend(["-metadata:s:s:0".into(), format!("language={}", lg)]); }
             }

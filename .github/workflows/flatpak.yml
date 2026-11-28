@@ -34,8 +34,8 @@ jobs:
           flatpak install --user -y flathub org.gnome.Platform//49 org.gnome.Sdk//49 org.freedesktop.Sdk.Extension.rust-stable//25.08
       - name: Build & Bundle Flatpak
         run: |
-          flatpak-builder --user --force-clean --repo=repo build-dir org.archlinux.FfmpegGui.yml
-          flatpak build-bundle repo FFmpeg-Studio-x86_64.flatpak org.archlinux.FfmpegGui
+          flatpak-builder --user --force-clean --repo=repo build-dir io.github.Alsawagh8.FfmpegStudio.yml
+          flatpak build-bundle repo FFmpeg-Studio-x86_64.flatpak io.github.Alsawagh8.FfmpegStudio
       - name: Upload Flatpak to v0.3.6 Release
         uses: softprops/action-gh-release@v2
         with:

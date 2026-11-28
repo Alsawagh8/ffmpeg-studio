@@ -1235,16 +1235,31 @@ fn build_ui(app: &adw::Application) {
             let stdout = child.stdout.take();
             let stderr = child.stderr.take();
 
+            let stderr_handle = std::thread::spawn(move || {
+                let mut tail = std::collections::VecDeque::with_capacity(12);
+                if let Some(err) = stderr {
+                    for line in BufReader::new(err).lines().map_while(Result::ok) {
+                        if tail.len() == 10 {
+                            tail.pop_front();
+                        }
+                        tail.push_back(line);
+                    }
+                }
+                tail.into_iter().collect::<Vec<_>>().join("\n")
+            });
+
             if let Ok(mut guard) = run_thread.lock() {
                 *guard = Some(child);
             }
 
+            let mut last_ui_tick = std::time::Instant::now() - std::time::Duration::from_secs(1);
             if let Some(out) = stdout {
                 for line in BufReader::new(out).lines().map_while(Result::ok) {
                     if let Some(ms_str) = line.strip_prefix("out_time_us=") {
                         if let Ok(us) = ms_str.trim().parse::<f64>() {
                             let cur = us / 1_000_000.0;
-                            if total_dur > 0.0 {
+                            if total_dur > 0.0 && last_ui_tick.elapsed().as_millis() >= 250 {
+                                last_ui_tick = std::time::Instant::now();
                                 let ratio = (cur / total_dur).clamp(0.0, 1.0);
                                 let msg = format!(
                                     "التقدم: {:.1}% ({:.1}s / {:.1}s)",
@@ -1263,15 +1278,13 @@ fn build_ui(app: &adw::Application) {
                 None
             };
 
+            let err_str = stderr_handle.join().unwrap_or_default();
+
             match wait_res {
                 Some(Ok(status)) if status.success() => {
                     let _ = tx.send(ProgressMsg::Done(Ok((if is_arabic_system() { "✅ اكتمل التحويل بنجاح!" } else { "✅ Encoding completed successfully!" }).to_string())));
                 }
                 Some(Ok(_)) => {
-                    let mut err_str = String::new();
-                    if let Some(mut err) = stderr {
-                        let _ = err.read_to_string(&mut err_str);
-                    }
                     let last: Vec<&str> = err_str.lines().rev().take(4).collect();
                     let joined = last.into_iter().rev().collect::<Vec<&str>>().join("
 ");
@@ -1324,5 +1337,16 @@ fn build_ui(app: &adw::Application) {
     toolbar_view.set_content(Some(&main_vbox));
 
     window.set_content(Some(&toolbar_view));
+    {
+        let run_on_close = running_child.clone();
+        window.connect_close_request(move |_| {
+            if let Ok(mut guard) = run_on_close.lock() {
+                if let Some(mut child) = guard.take() {
+                    let _ = child.kill();
+                }
+            }
+            glib::Propagation::Proceed
+        });
+    }
     window.present();
 }

@@ -541,6 +541,10 @@ fn build_quick_presets_box(vf_entry: &Entry) -> Box {
     let container = Box::builder().orientation(Orientation::Vertical).spacing(8).margin_bottom(8).build();
     let res_items = [
         (if is_arabic_system() { "اختر دقة جاهزة..." } else { "Select a resolution preset..." }),
+        "4K UHD (3840x2160) - zscale Spline36 -> zscale=3840:2160:filter=spline36",
+        "4K UHD (3840x2160) - zscale Lanczos -> zscale=3840:2160:filter=lanczos",
+        "2K QHD (2560x1440) - zscale Spline36 -> zscale=2560:1440:filter=spline36",
+        "1080p FullHD (1920x1080) - zscale Spline36 -> zscale=1920:1080:filter=spline36",
         "4K UHD (3840x2160) - Lanczos -> scale=3840:2160:flags=lanczos",
         "2K QHD (2560x1440) - Lanczos -> scale=2560:1440:flags=lanczos",
         "1080p FullHD (1920x1080) -> scale=1920:1080:flags=lanczos",
@@ -1037,7 +1041,12 @@ fn build_ui(app: &adw::Application) {
                     }
                 }
                 if !vc.starts_with("copy") && !ev.contains("-colorspace") && !ev.contains("-color_primaries") {
-                    args.extend(probe_color_tags(&input));
+                    let ctags = probe_color_tags(&input);
+                    let is_sdr_709 = ctags.iter().any(|x| x == "bt709") && !ctags.iter().any(|x| x.contains("2020") || x.contains("smpte2084") || x.contains("arib"));
+                    args.extend(ctags);
+                    if is_sdr_709 && vc.contains("av1") && !ev.contains("-bsf:v") {
+                        args.extend(["-bsf:v".into(), "av1_metadata=color_primaries=1:transfer_characteristics=1:matrix_coefficients=1".into()]);
+                    }
                 }
                 if !ev.trim().is_empty() {
                     args.extend(parse_shell_args(&ev));

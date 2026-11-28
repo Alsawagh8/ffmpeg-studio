@@ -1,0 +1,22 @@
+# Maintainer: Alsawagh8 <https://github.com>
+pkgname=ffmpeg-studio
+pkgver=0.4.2
+pkgrel=1
+pkgdesc="Modern, fast native GUI for FFmpeg built with Rust, GTK4 & Libadwaita"
+arch=('x86_64')
+url="https://github.com/ffmpeg-studio"
+license=('MIT')
+depends=('gtk4' 'libadwaita' 'ffmpeg')
+makedepends=('cargo' 'git')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/ffmpeg-studio/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$srcdir/ffmpeg-studio-$pkgver"
+    cargo build --release --locked
+}
+
+package() {
+    cd "$srcdir/ffmpeg-studio-$pkgver"
+    install -Dm755 "target/release/ffmpeg-gui" "$pkgdir/usr/bin/ffmpeg-gui"
+}

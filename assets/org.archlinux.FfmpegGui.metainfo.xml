@@ -29,7 +29,7 @@
   <url type="bugtracker">https://github.com/issues</url>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="0.4.2" date="2026-11-28">
+    <release version="0.4.2" date="2026-11-28" type="stable">
       <description>
         <p>Silent background execution on Windows without flashing console windows, plus live 2x2 preview frames and HandBrake-style subtitles.</p>
       </description>

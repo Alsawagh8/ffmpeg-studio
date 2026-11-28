@@ -248,7 +248,7 @@ fn format_cmd_preview(args: &[String]) -> String {
 fn escape_sub(p: &str) -> String { p.replace('\\', "/").replace(':', "\\:").replace('\'', "\\\'") }
 
 fn new_std_cmd<S: AsRef<std::ffi::OsStr>>(program: S) -> std::process::Command {
-    let mut cmd = std::process::new_std_cmd(program);
+    let mut cmd = std::process::Command::new(program);
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;

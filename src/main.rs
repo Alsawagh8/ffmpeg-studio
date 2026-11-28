@@ -76,6 +76,33 @@ fn format_hw_encoder_label(name: &str) -> String {
     format!("{}{}", name, tag)
 }
 
+fn probe_color_tags(path: &str) -> Vec<String> {
+    let mut out_args = Vec::new();
+    if let Ok(out) = new_std_cmd("ffprobe")
+        .args([
+            "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=color_space,color_primaries,color_transfer",
+            "-of", "default=noprint_wrappers=1", path,
+        ])
+        .output()
+    {
+        let txt = String::from_utf8_lossy(&out.stdout);
+        let mut cs = String::new();
+        let mut cp = String::new();
+        let mut ct = String::new();
+        for line in txt.lines() {
+            if let Some(v) = line.strip_prefix("color_space=") { cs = v.trim().to_string(); }
+            if let Some(v) = line.strip_prefix("color_primaries=") { cp = v.trim().to_string(); }
+            if let Some(v) = line.strip_prefix("color_transfer=") { ct = v.trim().to_string(); }
+        }
+        let valid = |v: &str| !v.is_empty() && v != "unknown" && v != "reserved";
+        if valid(&cs) { out_args.extend(["-colorspace".into(), cs]); } else { out_args.extend(["-colorspace".into(), "bt709".into()]); }
+        if valid(&cp) { out_args.extend(["-color_primaries".into(), cp]); } else { out_args.extend(["-color_primaries".into(), "bt709".into()]); }
+        if valid(&ct) { out_args.extend(["-color_trc".into(), ct]); } else { out_args.extend(["-color_trc".into(), "bt709".into()]); }
+    }
+    out_args
+}
+
 fn is_source_10bit(path: &str) -> bool {
     if let Ok(out) = new_std_cmd("ffprobe")
         .args([
@@ -1008,6 +1035,9 @@ fn build_ui(app: &adw::Application) {
                             _ => {}
                         }
                     }
+                }
+                if !vc.starts_with("copy") && !ev.contains("-colorspace") && !ev.contains("-color_primaries") {
+                    args.extend(probe_color_tags(&input));
                 }
                 if !ev.trim().is_empty() {
                     args.extend(parse_shell_args(&ev));
